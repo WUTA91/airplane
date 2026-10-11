@@ -3,9 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Airplan · 飞行计划V1.2.1.3Beta2</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<title>WUJING·airplane</title>
+<!-- Leaflet：优先使用本地 vendor/ 副本，保证离线也能打开；本地文件缺失时自动回退 CDN -->
+<link rel="stylesheet" href="vendor/leaflet.css" />
+<script src="vendor/leaflet.js"></script>
+<script>
+// 本地 Leaflet 加载失败（文件缺失/被删）时，回退到 CDN。onerror 在解析阶段同步触发，
+// 因此这里用 document.write 插入同步脚本，保证后续内联代码运行时 window.L 已就绪。
+if (typeof L === 'undefined') {
+  document.write('<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />');
+  document.write('<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>');
+}
+</script>
 <style>
 :root{
   --safe-top:env(safe-area-inset-top,0px);
@@ -62,8 +71,10 @@ body{position:fixed;inset:0;overscroll-behavior:none;touch-action:pan-x pan-y;}
 .airport-modal.show .modal-wrap{transform:translateY(0) scale(1);opacity:1;}
 .right-time-panel,.bottom-search-box,#airportListWrap{pointer-events:auto;}
 
-/* 右侧面板（时间选择） */
-.right-time-panel{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:var(--panel);border-radius:14px;padding:14px;min-width:170px;backdrop-filter:blur(10px);transition:all .4s var(--ease-out-expo);border:1px solid rgba(255,255,255,.06);box-shadow:0 12px 40px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:10px;align-items:center;}
+/* 右侧面板（航程筛选器） */
+.right-time-panel{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:var(--panel);border-radius:14px;padding:14px;min-width:170px;backdrop-filter:blur(10px);transition:all .4s var(--ease-out-expo);border:1px solid rgba(255,255,255,.06);box-shadow:0 12px 40px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:8px;align-items:center;}
+.time-panel-title{font-size:12px;color:#999;letter-spacing:1px;text-transform:none;}
+.time-panel-hint{font-size:11px;color:#888;text-align:center;line-height:1.5;max-width:170px;white-space:pre-line;}
 .time-slider{width:100%;height:24px;-webkit-appearance:none;background:rgba(255,255,255,.15);border-radius:12px;outline:none;margin:4px 0;}
 .time-slider::-webkit-slider-thumb{-webkit-appearance:none;width:36px;height:36px;border-radius:50%;background:var(--primary);cursor:pointer;box-shadow:0 0 16px rgba(255,255,255,.55);transition:transform .15s;}
 .time-slider::-webkit-slider-thumb:hover{transform:scale(1.1);}
@@ -180,6 +191,8 @@ body{position:fixed;inset:0;overscroll-behavior:none;touch-action:pan-x pan-y;}
 .ticket-code{font-size:clamp(30px,8vw,36px);font-weight:800;letter-spacing:1px}
 .ticket-line{display:flex;justify-content:space-between;margin:10px 0;color:#aaa;font-size:14px}
 .barcode-box{width:100%;height:88px;background:#fff;margin-top:24px;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+/* 必须同时约束 svg 尺寸：否则 SVG 会被 flex 容器自由拉伸，条宽比例失真变成黑块 */
+.barcode-box svg{width:92%;height:74px;display:block;}
 .barcode-box canvas{width:92%;height:66px;}
 .checkin-main-btn{padding:15px 46px;border-radius:32px;background:linear-gradient(135deg,#fff 0%,#e8e8e8 100%);color:#000;border:none;font-size:16px;cursor:pointer;font-weight:600;transition:transform .15s,box-shadow .25s;box-shadow:0 8px 26px rgba(0,0,0,.35);}
 .checkin-main-btn:hover{box-shadow:0 10px 32px rgba(255,255,255,.18);}
@@ -204,6 +217,9 @@ body{position:fixed;inset:0;overscroll-behavior:none;touch-action:pan-x pan-y;}
 .cruise-ctrl-btn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
 .cruise-ctrl-btn:hover{background:rgba(0,0,0,.78);box-shadow:0 4px 16px rgba(0,0,0,.4);}
 .cruise-ctrl-btn:active{transform:scale(.9);}
+/* 自动跟随开启时高亮，便于一眼看出当前状态 */
+.cruise-ctrl-btn.follow-toggle.active{background:rgba(255,255,255,.92);color:#111;border-color:transparent;box-shadow:0 0 14px rgba(255,255,255,.5);}
+.cruise-ctrl-btn.follow-toggle.active svg{stroke:#111;}
 .layer-panel{position:absolute;top:calc(12px + var(--safe-top));right:calc(12px + var(--safe-right));background:rgba(0,0,0,.82);border-radius:14px;padding:16px;min-width:200px;opacity:0;pointer-events:none;transform:translateY(-10px) scale(.98);transition:opacity .3s var(--ease-out-expo),transform .3s var(--ease-out-expo);z-index:30;backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.08);box-shadow:0 16px 50px rgba(0,0,0,.45);}
 .layer-panel.show{opacity:1;pointer-events:auto;transform:translateY(0) scale(1);}
 #cruiseCloseHome{text-align:right;display:block;cursor:pointer;font-size:18px;margin-bottom:10px;transition:opacity .15s,color .15s;color:#aaa;}
@@ -248,6 +264,46 @@ body{position:fixed;inset:0;overscroll-behavior:none;touch-action:pan-x pan-y;}
 .clear-history-btn:hover{background:rgba(255,77,77,.25);}
 .clear-history-btn:active{transform:scale(.98);}
 
+/* 机场维基 */
+.wiki-item{display:flex;align-items:center;padding:12px 14px;background:rgba(255,255,255,.06);border-radius:12px;cursor:pointer;transition:background .2s,transform .15s,border-color .2s;font-size:15px;border:1px solid rgba(255,255,255,.08);margin-bottom:8px;}
+.wiki-item:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.3);}
+.wiki-item:active{transform:scale(.99);}
+.wiki-item .wiki-item-name{color:#fff;}
+.wiki-item .wiki-item-meta{margin-left:auto;color:#aaa;font-size:12px;}
+.wiki-detail-head{display:flex;align-items:baseline;gap:12px;margin-bottom:6px;flex-wrap:wrap;}
+.wiki-code{font-size:clamp(26px,7vw,34px);font-weight:800;letter-spacing:1px;}
+.wiki-name{font-size:clamp(14px,3.5vw,18px);color:#bbb;}
+.wiki-row{display:flex;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.1);font-size:14px;}
+.wiki-row:last-child{border-bottom:none;}
+.wiki-row .wiki-k{color:#999;flex:0 0 auto;}
+.wiki-row .wiki-v{color:#fff;text-align:right;word-break:break-word;}
+.wiki-intro{margin-top:14px;padding:14px;background:rgba(255,255,255,.05);border-radius:12px;font-size:14px;line-height:1.7;color:#ddd;border-left:3px solid rgba(255,255,255,.25);}
+.wiki-empty{color:#aaa;text-align:center;padding:34px 10px;font-size:14px;}
+.wiki-todo{color:#8a8a8a;font-size:12px;}
+.wiki-badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,.1);color:#bbb;margin-left:6px;}
+.wiki-nav{display:flex;gap:10px;margin-top:16px;}
+.wiki-nav button{flex:1;padding:11px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.07);color:#fff;cursor:pointer;font-size:14px;transition:background .2s,transform .12s;}
+.wiki-nav button:hover{background:rgba(255,255,255,.14);}
+.wiki-nav button:active{transform:scale(.97);}
+.wiki-nav button:disabled{opacity:.35;cursor:not-allowed;}
+
+/* 存档 */
+.arch-btn{padding:8px 16px;border-radius:9px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08);color:#fff;cursor:pointer;font-size:14px;transition:background .2s,transform .12s,border-color .2s;}
+.arch-btn:hover{background:rgba(255,255,255,.15);}
+.arch-btn:active{transform:scale(.97);}
+.arch-btn.primary{background:linear-gradient(135deg,#fff 0%,#e0e0e0 100%);color:#000;border-color:transparent;font-weight:600;}
+.arch-btn.danger{background:rgba(255,77,77,.16);border-color:rgba(255,77,77,.4);color:#ff9090;}
+.arch-btn.danger:hover{background:rgba(255,77,77,.26);}
+.arch-btn.small{padding:6px 12px;font-size:13px;}
+.arch-note{margin-top:16px;padding:12px 14px;background:rgba(255,255,255,.04);border-radius:10px;font-size:12px;line-height:1.7;color:#999;border-left:3px solid rgba(255,255,255,.18);}
+.arch-danger{margin-top:18px;padding-top:16px;border-top:1px solid rgba(255,255,255,.1);}
+.slot-item{display:flex;align-items:center;gap:12px;padding:13px 14px;background:rgba(255,255,255,.06);border-radius:12px;border:1px solid rgba(255,255,255,.08);margin-bottom:9px;flex-wrap:wrap;}
+.slot-main{flex:1 1 180px;min-width:0;}
+.slot-name{font-size:15px;font-weight:600;margin-bottom:3px;word-break:break-word;}
+.slot-meta{font-size:12px;color:#aaa;margin-bottom:2px;word-break:break-word;}
+.slot-time{font-size:11px;color:#777;}
+.slot-actions{display:flex;gap:8px;flex:0 0 auto;}
+
 /* 地图元素 */
 .range-circle{pointer-events:none}
 .route-line{stroke:#ff4d4d;stroke-width:4;fill:none;filter:drop-shadow(0 0 6px rgba(255,77,77,.55));stroke-linecap:round;stroke-dasharray:12 6;animation:routeFlow 1.2s linear infinite;}
@@ -257,9 +313,13 @@ body{position:fixed;inset:0;overscroll-behavior:none;touch-action:pan-x pan-y;}
 .airport-marker span{position:relative;z-index:1;}
 .airport-marker:hover{transform:translateY(-3px) scale(1.1);box-shadow:0 6px 18px rgba(0,0,0,.45),0 0 0 3px rgba(255,255,255,.7);background:linear-gradient(145deg,#323240 0%,#24242e 100%);}
 .plane-marker-div{}
-.plane-icon{width:48px;height:48px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 4px 10px rgba(0,0,0,.4));transition:transform .6s var(--ease-out-expo);position:relative;}
+/* 机头旋转由 JS 每帧直接赋值（见 createPlaneMarker / flyStep）。
+   这里绝对不能加 transition：每帧都设新目标值，再叠加 0.6s 缓动会互相追赶，表现为持续抖动。
+   尾迹通过 CSS 变量继承父级旋转角，避免子元素写死 rotate 与父级打架。 */
+.plane-icon{width:48px;height:48px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 4px 10px rgba(0,0,0,.4));position:relative;--plane-deg:0deg;}
 .plane-icon svg{width:34px;height:34px;fill:#fff;stroke:#ffffff;stroke-width:1.2;filter:drop-shadow(0 0 8px rgba(255,255,255,.6));}
-.plane-trail{position:absolute;top:50%;left:50%;width:80px;height:2px;background:linear-gradient(90deg,rgba(255,208,0,.6),transparent);transform-origin:left center;transform:translate(-100%,-50%) rotate(180deg);opacity:.7;pointer-events:none;animation:trailPulse 1.5s ease-in-out infinite;}
+/* 尾迹始终贴在机尾：先反向补偿父级旋转，再固定转到 180° */
+.plane-trail{position:absolute;top:50%;left:50%;width:80px;height:2px;background:linear-gradient(90deg,rgba(255,208,0,.6),transparent);transform-origin:left center;transform:translate(-100%,-50%) rotate(calc(180deg - var(--plane-deg)));opacity:.7;pointer-events:none;animation:trailPulse 1.5s ease-in-out infinite;}
 .leaflet-control-attribution{display:none!important;}
 .custom-attribution{position:fixed;bottom:calc(8px + var(--safe-bottom));right:calc(8px + var(--safe-right));transform:none;z-index:9;background:rgba(0,0,0,.28);color:#888;font-size:9px;padding:2px 7px;border-radius:8px;backdrop-filter:blur(4px);white-space:nowrap;max-width:45vw;overflow:hidden;text-overflow:ellipsis;pointer-events:none;opacity:.85;transition:opacity .25s,bottom .25s;}
 .custom-attribution a{color:#aaa;pointer-events:auto;}
@@ -278,7 +338,7 @@ body{position:fixed;inset:0;overscroll-behavior:none;touch-action:pan-x pan-y;}
 @keyframes slideUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
 @keyframes pulsePlane{0%,100%{transform:scale(1);opacity:.85}50%{transform:scale(1.08);opacity:1}}
 @keyframes routeFlow{to{stroke-dashoffset:-18}}
-@keyframes trailPulse{0%,100%{opacity:.5;transform:translate(-100%,-50%) rotate(180deg) scaleX(.8)}50%{opacity:.85;transform:translate(-100%,-50%) rotate(180deg) scaleX(1.1)}}
+@keyframes trailPulse{0%,100%{opacity:.5;transform:translate(-100%,-50%) rotate(calc(180deg - var(--plane-deg))) scaleX(.8)}50%{opacity:.85;transform:translate(-100%,-50%) rotate(calc(180deg - var(--plane-deg))) scaleX(1.1)}}
 .anim-fade{animation:fadeIn .4s var(--ease-out-expo) both}
 .anim-slide-up{animation:slideUp .5s var(--ease-out-expo) both}
 
@@ -290,13 +350,16 @@ body{position:fixed;inset:0;overscroll-behavior:none;touch-action:pan-x pan-y;}
   .airport-info{font-size:14px;}
   .left-menu{bottom:calc(22px + var(--safe-bottom));gap:7px;}
   .menu-btn{width:142px;font-size:14px;padding:10px 14px;}
-  .modal-wrap{flex-direction:column;width:100%;height:100%;}
-  .right-time-panel{position:relative;right:auto;top:auto;transform:none;width:min(520px,90%);margin:70px auto 10px;min-width:auto;padding:16px;}
+  /* 竖屏：让内容区可滚动，避免矮屏因固定预留高度超过视口，把机场列表顶出屏幕且无法滚动。 */
+  .modal-wrap{flex-direction:column;width:100%;height:100%;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-top:calc(8px + var(--safe-top));padding-bottom:calc(8px + var(--safe-bottom));}
+  /* 面板不再用固定 70px 上边距，改为弹性间距，矮屏自动收紧 */
+  .right-time-panel{position:relative;right:auto;top:auto;transform:none;width:min(520px,90%);margin:clamp(12px,6vh,70px) auto 10px;min-width:auto;padding:16px;flex:0 0 auto;}
   .time-slider{height:28px;}
   .time-slider::-webkit-slider-thumb{width:40px;height:40px;}
   .time-slider::-moz-range-thumb{width:40px;height:40px;}
   .time-label{font-size:22px;}
-  #airportListWrap{position:relative;left:auto;top:auto;transform:none;width:min(520px,92%);max-height:calc(100% - 230px - var(--safe-bottom));margin:0 auto;}
+  /* 列表改为弹性高度：优先占满剩余空间，但至少保留可滚动区域 */
+  #airportListWrap{position:relative;left:auto;top:auto;transform:none;width:min(520px,92%);flex:1 1 auto;min-height:120px;max-height:calc(100% - 200px - var(--safe-bottom));margin:0 auto;}
   .bottom-search-box{width:min(520px,92%);bottom:calc(14px + var(--safe-bottom));}
   .seat-modal{flex-direction:column;justify-content:center;padding-top:calc(48px + var(--safe-top));padding-bottom:calc(12px + var(--safe-bottom));overflow-y:auto;}
   .plane-body{width:min(340px,92vw);padding:22px 12px 18px;border-radius:70px 70px 16px 16px;margin-bottom:10px;}
@@ -323,11 +386,13 @@ body{position:fixed;inset:0;overscroll-behavior:none;touch-action:pan-x pan-y;}
   .airport-info{font-size:12px;}
   .left-menu{left:calc(8px + var(--safe-left));bottom:calc(12px + var(--safe-bottom));gap:6px;}
   .menu-btn{width:120px;padding:8px 12px;font-size:13px;}
-  .right-time-panel{position:relative;right:auto;top:auto;transform:none;width:min(300px,42vw);margin:60px 0 0 60px;min-width:auto;padding:10px;}
+  /* 横屏矮屏同样需要可滚动，且上边距改为弹性，避免面板被挤出视口 */
+  .modal-wrap{overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
+  .right-time-panel{position:relative;right:auto;top:auto;transform:none;width:min(300px,42vw);margin:clamp(8px,4vh,60px) 0 0 clamp(12px,5vw,60px);min-width:auto;padding:10px;flex:0 0 auto;}
   .time-slider{height:24px;}
   .time-slider::-webkit-slider-thumb{width:34px;height:34px;}
   .time-slider::-moz-range-thumb{width:34px;height:34px;}
-  #airportListWrap{position:absolute;left:auto;right:20px;top:55%;transform:translateY(-50%);width:min(320px,46vw);max-height:62vh;}
+  #airportListWrap{position:absolute;left:auto;right:20px;top:55%;transform:translateY(-50%);width:min(320px,46vw);max-height:min(62vh,calc(100% - 80px));}
   .bottom-search-box{width:min(320px,46vw);left:auto;right:20px;transform:none;bottom:calc(12px + var(--safe-bottom));}
   .seat-modal{flex-direction:row;gap:16px;padding:0 60px;justify-content:center;}
   .plane-body{width:min(340px,46vw);padding:24px 16px;max-height:92vh;}
@@ -388,8 +453,12 @@ body{position:fixed;inset:0;overscroll-behavior:none;touch-action:pan-x pan-y;}
   <button class="back-btn" id="backFromAirport">&lt;</button>
   <div class="modal-wrap">
     <div class="right-time-panel">
-      <input type="range" min="10" max="240" step="5" value="60" class="time-slider" id="timeRangeSlider">
+      <!-- 说明：此滑块是"航程筛选器"，用于圈出该续航范围内的机场；
+           它不是飞行时长，实际时长由起终点距离 ÷ 巡航速度决定。 -->
+      <div class="time-panel-title">航程筛选</div>
+      <input type="range" min="10" max="240" step="5" value="60" class="time-slider" id="timeRangeSlider" aria-label="航程筛选范围（分钟）">
       <div class="time-label" id="timeLabel">60 分钟</div>
+      <div class="time-panel-hint" id="timeRangeHint"></div>
     </div>
     <div id="airportListWrap"></div>
     <div class="bottom-search-box">
@@ -454,11 +523,8 @@ body{position:fixed;inset:0;overscroll-behavior:none;touch-action:pan-x pan-y;}
     <div class="ticket-line"><span>乘客 <span id="showNick">请在设置中输入昵称</span></span><span>日期 <span id="realDate">03JUL</span></span></div>
     <div class="ticket-line"><span></span><span>座位 <span id="ticketSeatShow"></span></span></div>
     <div class="barcode-box">
-	  <svg width="380" height="60">
+	  <svg id="ticketBarcode" viewBox="0 0 380 60" preserveAspectRatio="xMidYMid meet" role="img" aria-label="登机牌条形码">
 		<rect x="0" y="0" width="380" height="60" fill="#fff"/>
-		<g fill="#000">
-		  <rect x="10" y="8" width="2" height="44"/><rect x="16" y="8" width="1" height="44"/><rect x="22" y="8" width="3" height="44"/><rect x="30" y="8" width="1" height="44"/><rect x="38" y="8" width="4" height="44"/><rect x="46" y="8" width="2" height="44"/><rect x="54" y="8" width="1" height="44"/><rect x="64" y="8" width="3" height="44"/><rect x="72" y="8" width="2" height="44"/><rect x="82" y="8" width="1" height="44"/><rect x="94" y="8" width="4" height="44"/><rect x="104" y="8" width="1" height="44"/><rect x="114" y="8" width="3" height="44"/><rect x="124" y="8" width="2" height="44"/><rect x="136" y="8" width="1" height="44"/><rect x="148" y="8" width="4" height="44"/><rect x="160" y="8" width="2" height="44"/><rect x="172" y="8" width="1" height="44"/><rect x="186" y="8" width="3" height="44"/><rect x="198" y="8" width="2" height="44"/><rect x="210" y="8" width="1" height="44"/><rect x="224" y="8" width="4" height="44"/><rect x="236" y="8" width="1" height="44"/><rect x="248" y="8" width="3" height="44"/><rect x="260" y="8" width="2" height="44"/><rect x="274" y="8" width="1" height="44"/><rect x="288" y="8" width="4" height="44"/><rect x="302" y="8" width="2" height="44"/><rect x="316" y="8" width="1" height="44"/><rect x="330" y="8" width="3" height="44"/><rect x="344" y="8" width="2" height="44"/><rect x="358" y="8" width="1" height="44"/><rect x="370" y="8" width="4" height="44"/>
-		</g>
 	  </svg>
 	</div>
   </div>
@@ -488,6 +554,13 @@ body{position:fixed;inset:0;overscroll-behavior:none;touch-action:pan-x pan-y;}
     </button>
     <button class="cruise-ctrl-btn" id="openLayerPanel" title="地图图层">
       <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+    </button>
+    <!-- 手动/自动居中：点击立即定位到飞机；长按或点右侧小箭头切换自动跟随 -->
+    <button class="cruise-ctrl-btn" id="centerOnPlaneBtn" title="回到飞机位置">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/></svg>
+    </button>
+    <button class="cruise-ctrl-btn follow-toggle" id="toggleFollowBtn" title="自动跟随：关">
+      <svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18" opacity="0"/><circle cx="12" cy="12" r="2.5"/><path d="M12 4.5a7.5 7.5 0 0 1 7.5 7.5"/><path d="M12 19.5A7.5 7.5 0 0 1 4.5 12"/></svg>
     </button>
   </div>
   <div class="cruise-top-info">
@@ -544,6 +617,46 @@ body{position:fixed;inset:0;overscroll-behavior:none;touch-action:pan-x pan-y;}
 
 <div class="custom-attribution" id="customAttribution"><a href="https://www.autonavi.com/" target="_blank" rel="noopener">© 高德地图</a></div>
 
+<!-- 机场维基 -->
+<div class="setting-pop ui-layer" id="wikiPop" style="display:none">
+  <button class="back-btn" id="closeWikiPop">×</button>
+  <h2 style="margin-bottom:14px;font-size:24px">机场维基</h2>
+  <input class="input-name" id="wikiSearchInput" placeholder="搜索三字码 / 城市 / 机场名" autocomplete="off" style="margin:0 0 14px;width:100%;">
+  <div class="set-content" id="wikiListWrap"></div>
+</div>
+
+<!-- 机场详情 -->
+<div class="setting-pop ui-layer" id="wikiDetailPop" style="display:none">
+  <button class="back-btn" id="closeWikiDetail">×</button>
+  <div class="wiki-detail-head">
+    <span class="wiki-code" id="wikiDetailCode">PEK</span>
+    <span class="wiki-name" id="wikiDetailName">北京首都</span>
+  </div>
+  <div class="set-content" id="wikiDetailWrap"></div>
+</div>
+
+<!-- 存档 -->
+<div class="setting-pop ui-layer" id="archivePop" style="display:none">
+  <button class="back-btn" id="closeArchivePop">×</button>
+  <h2 style="margin-bottom:14px;font-size:24px">存档</h2>
+  <div class="set-tab-wrap">
+    <div class="set-tab active" data-atab="backup">备份</div>
+    <div class="set-tab" data-atab="slots">配置存档</div>
+  </div>
+  <div class="set-content" id="archiveContent"></div>
+</div>
+
+<!-- 飞行计划 -->
+<div class="setting-pop ui-layer" id="planPop" style="display:none">
+  <button class="back-btn" id="closePlanPop">×</button>
+  <h2 style="margin-bottom:14px;font-size:24px">飞行计划</h2>
+  <div class="set-tab-wrap">
+    <div class="set-tab active" data-ptab="list">我的计划</div>
+    <div class="set-tab" data-ptab="new">新建计划</div>
+  </div>
+  <div class="set-content" id="planContent"></div>
+</div>
+
 <script>
 // ========== 存储封装 ==========
 function setStorage(key, val) {
@@ -596,16 +709,8 @@ function debounce(fn, wait=250){
         t = setTimeout(()=>fn.apply(this,args),wait);
     };
 }
-function throttle(fn, limit=120){
-    let inThrottle = false;
-    return function(...args){
-        if(!inThrottle){
-            fn.apply(this,args);
-            inThrottle = true;
-            setTimeout(()=>inThrottle=false, limit);
-        }
-    };
-}
+// 说明：原有的 throttle() 从未被调用（滑块统一改用 oninput + onchange 直接提交），
+// 已移除，避免误以为存在节流保护。
 
 function randomFlightNumber() {
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -623,75 +728,76 @@ const iconSvg = {
 };
 
 const airportDB = [
-{code:"PEK",name:"北京首都",lng:116.403874,lat:40.07993},
-{code:"PKX",name:"北京大兴",lng:116.411323,lat:39.519577},
-{code:"PVG",name:"上海浦东",lng:121.790876,lat:31.14339},
-{code:"SHA",name:"上海虹桥",lng:121.330767,lat:31.190225},
-{code:"CAN",name:"广州白云",lng:113.299034,lat:23.392408},
-{code:"SZX",name:"深圳宝安",lng:113.810332,lat:22.639297},
-{code:"CTU",name:"成都双流",lng:103.954133,lat:30.57848},
-{code:"TFU",name:"成都天府",lng:104.4416,lat:30.3114},
-{code:"CKG",name:"重庆江北",lng:106.6443,lat:29.6263},
-{code:"WUH",name:"武汉天河",lng:114.1217,lat:30.7824},
-{code:"HGH",name:"杭州萧山",lng:120.4331,lat:30.2217},
-{code:"XIY",name:"西安咸阳",lng:108.7516,lat:34.4476},
-{code:"NKG",name:"南京禄口",lng:118.7876,lat:31.7435},
-{code:"TSN",name:"天津滨海",lng:117.348,lat:39.1278},
-{code:"TAO",name:"青岛胶东",lng:120.0913,lat:36.3653},
-{code:"DLC",name:"大连周水子",lng:121.5367,lat:38.9644},
-{code:"CGQ",name:"长春龙嘉",lng:125.6928,lat:43.8499},
-{code:"HRB",name:"哈尔滨太平",lng:126.242,lat:45.6177},
-{code:"SYX",name:"三亚凤凰",lng:109.511,lat:18.342},
-{code:"HAK",name:"海口美兰",lng:110.458,lat:19.932},
-{code:"KMG",name:"昆明长水",lng:102.942,lat:25.103},
-{code:"LHW",name:"兰州中川",lng:103.629,lat:36.475},
-{code:"URC",name:"乌鲁木齐地窝堡",lng:87.477,lat:43.907},
-{code:"HFE",name:"合肥新桥",lng:117.782,lat:31.981},
-{code:"BFU",name:"蚌埠滕湖",lng:117.376,lat:33.053},
-{code:"FUG",name:"阜阳西关",lng:115.741,lat:32.897},
-{code:"XUZ",name:"徐州观音",lng:117.167,lat:34.118},
-{code:"BZJ",name:"亳州机场",lng:115.852,lat:33.876},
-{code:"YIW",name:"义乌",lng:120.034,lat:29.333},
-{code:"FOC",name:"福州长乐",lng:119.623,lat:25.931},
-{code:"XMN",name:"厦门高崎",lng:118.128,lat:24.544},
-{code:"WNZ",name:"温州龙湾",lng:120.646,lat:27.918},
-{code:"CSX",name:"长沙黄花",lng:113.22,lat:28.193},
-{code:"LYA",name:"洛阳北郊",lng:112.367,lat:34.744},
-{code:"CGO",name:"郑州新郑",lng:113.84,lat:34.51},
-{code:"YNT",name:"烟台蓬莱",lng:120.446,lat:37.405},
-{code:"WEH",name:"威海大水泊",lng:122.23,lat:37.18},
-{code:"NNG",name:"南宁吴圩",lng:108.18,lat:22.607},
-{code:"KWE",name:"贵阳龙洞堡",lng:106.81,lat:26.54},
-{code:"LJG",name:"丽江三义",lng:100.24,lat:26.68},
-{code:"DYG",name:"张家界荷花",lng:110.44,lat:29.11},
-{code:"CNI",name:"大连长海",lng:122.607,lat:39.268},
-{code:"HLD",name:"呼伦贝尔海拉尔",lng:119.839,lat:49.213},
-{code:"MDG",name:"牡丹江海浪",lng:129.573,lat:44.523},
-{code:"JMU",name:"佳木斯东郊",lng:130.459,lat:46.841},
-{code:"NDG",name:"齐齐哈尔三家子",lng:124.016,lat:47.226},
-{code:"BAV",name:"包头二里半",lng:109.998,lat:40.559},
-{code:"DSN",name:"鄂尔多斯伊金霍洛",lng:109.863,lat:39.49},
-{code:"CIF",name:"赤峰玉龙",lng:118.835,lat:42.157},
-{code:"DAT",name:"大同云冈",lng:113.593,lat:40.043},
-{code:"YCU",name:"运城张孝",lng:111.039,lat:35.114},
-{code:"HDG",name:"邯郸",lng:114.424,lat:36.527},
-{code:"ZQZ",name:"张家口宁远",lng:114.926,lat:40.736},
-{code:"CZX",name:"常州奔牛",lng:119.732,lat:31.915},
-{code:"WUX",name:"无锡硕放",lng:120.432,lat:31.492},
-{code:"NTG",name:"南通兴东",lng:120.958,lat:32.071},
-{code:"YTY",name:"扬州泰州",lng:119.712,lat:32.562},
-{code:"HSN",name:"舟山普陀",lng:122.367,lat:29.936},
-{code:"YNZ",name:"盐城南洋",lng:120.185,lat:33.423},
-{code:"LYI",name:"临沂启阳",lng:118.417,lat:35.058},
-{code:"YIH",name:"宜昌三峡",lng:111.443,lat:30.695},
-{code:"XFN",name:"襄阳刘集",lng:112.293,lat:32.143},
-{code:"KOW",name:"赣州黄金",lng:114.782,lat:25.856},
-{code:"TXN",name:"黄山屯溪",lng:118.246,lat:29.911},
-{code:"UYN",name:"榆林榆阳",lng:109.746,lat:38.258},
-{code:"JHG",name:"西双版纳嘎洒",lng:100.757,lat:21.979},
-{code:"DLU",name:"大理荒草坝",lng:100.173,lat:25.716},
-{code:"MIG",name:"绵阳南郊",lng:104.736,lat:31.426},
-{code:"ZHA",name:"湛江吴川",lng:110.448,lat:21.228}
+
+    {code:"PEK",name:"北京首都",lng:116.403874,lat:40.07993,fullName:"北京首都国际机场",province:"北京市",runways:3,runwayLength:3800,elevation:35,openedYear:1958,intro:"基础定位：北京首都国际机场是北京市的大型民用国际枢纽机场，中国重要门户复合枢纽之一；硬件规模：现有三条平行跑道，最长主跑道3800米，三座航站楼总面积约141万平方米；建设历程：1958年建成通航，后历经多次改扩建，T3航站楼于2008年投入使用；航线规划：航线网络通达国内主要城市及众多国际航点；地面交通：机场高速与地铁首都机场线等多种方式接驳市区；运营现状：旅客吞吐量长期位居全国机场前列；战略意义：作为国家门户枢纽，服务首都功能与区域经济社会发展。"},
+    {code:"PKX",name:"北京大兴",lng:116.411323,lat:39.519577,fullName:"北京大兴国际机场",province:"北京市",runways:4,runwayLength:3800,elevation:30,openedYear:2019,intro:"基础定位：北京大兴国际机场是北京市的大型国际枢纽机场，京津冀地区重要航空门户；硬件规模：现有四条跑道，其中三条长3800米，航站楼面积约78万平方米；建设历程：2014年开工建设，2019年9月正式投入运营；航线规划：航线网络覆盖国内主要城市并拓展国际航点；地面交通：机场快线、高速公路及多条轨道交通接驳市区与周边城市；运营现状：旅客吞吐量稳步增长；战略意义：支撑京津冀协同发展，服务区域对外开放与经济社会发展。"},
+    {code:"PVG",name:"上海浦东",lng:121.790876,lat:31.14339,fullName:"上海浦东国际机场",province:"上海市",runways:4,runwayLength:4000,elevation:4,openedYear:1999,intro:"基础定位：上海浦东国际机场是上海市的大型国际枢纽机场，中国三大门户复合枢纽之一；硬件规模：现有四条跑道，最长主跑道4000米，两座航站楼及大型单体卫星厅；建设历程：1999年建成通航，后陆续启用第二、第三、第四跑道及卫星厅；航线规划：航线网络通达国内主要城市及全球众多航点；地面交通：地铁、机场快线与机场高速等多方式接驳市区；运营现状：客货吞吐量均居全国前列；战略意义：服务上海国际航运中心建设与区域经济社会发展。"},
+    {code:"SHA",name:"上海虹桥",lng:121.330767,lat:31.190225,fullName:"上海虹桥国际机场",province:"上海市",runways:2,runwayLength:3400,elevation:3,openedYear:1964,intro:"基础定位：上海虹桥国际机场是上海市的民用干线机场，主要服务国内及地区航线；硬件规模：现有两条跑道，最长主跑道3400米，两座航站楼；建设历程：场址始建于1921年，1964年作为民用机场扩建投用，后历经多次改扩建；航线规划：以国内商务航线为主，兼营部分国际及地区航线；地面交通：紧邻虹桥综合交通枢纽，高铁、地铁与公交等多种方式便捷换乘；运营现状：航班频次高，服务国内中短程航线；战略意义：依托综合交通枢纽服务长三角一体化与区域经济社会发展。"},
+    {code:"CAN",name:"广州白云",lng:113.299034,lat:23.392408,fullName:"广州白云国际机场",province:"广东省",runways:5,runwayLength:3800,elevation:15,openedYear:2004,intro:"基础定位：广州白云国际机场是广东省广州市的大型国际枢纽机场，粤港澳大湾区核心航空枢纽；硬件规模：现有五条跑道，最长主跑道3800米，三座航站楼；建设历程：现址机场于2004年建成转场通航，后陆续扩建第二、第三及第四、第五跑道；航线规划：航线网络覆盖国内主要城市及全球众多航点；地面交通：机场高速、地铁及城际轨道等多方式接驳市区；运营现状：旅客与货邮吞吐量长期位居全国前列；战略意义：服务粤港澳大湾区建设与区域经济社会发展。"},
+    {code:"SZX",name:"深圳宝安",lng:113.810332,lat:22.639297,fullName:"深圳宝安国际机场",province:"广东省",runways:3,runwayLength:3800,elevation:4,openedYear:1991,intro:"基础定位：深圳宝安国际机场是广东省深圳市的大型国际枢纽机场，粤港澳大湾区重要航空枢纽；硬件规模：现有三条跑道，最长主跑道3800米，两座航站楼；建设历程：1991年建成通航，2011年第二跑道投用，后扩建第三跑道；航线规划：航线网络通达国内主要城市及众多国际航点；地面交通：机场高速、地铁等多种方式接驳市区；运营现状：旅客吞吐量居全国大型机场前列；战略意义：服务大湾区建设与区域经济社会发展。"},
+    {code:"CTU",name:"成都双流",lng:103.954133,lat:30.57848,fullName:"成都双流国际机场",province:"四川省",runways:2,runwayLength:3600,elevation:495,openedYear:1956,intro:"基础定位：成都双流国际机场是四川省成都市的民用枢纽机场，西南地区重要航空枢纽；硬件规模：现有两条平行跑道，均长3600米，两座航站楼总面积约50万平方米；建设历程：场址前身为1938年建成的军用机场，1956年划归民航使用，后历经多次改扩建；航线规划：航线网络通达国内主要城市及地区航点；地面交通：机场高速与地铁等多方式接驳市区；运营现状：旅客吞吐量居中西部机场前列；战略意义：服务成渝地区双城经济圈与区域经济社会发展。"},
+    {code:"TFU",name:"成都天府",lng:104.4416,lat:30.3114,fullName:"成都天府国际机场",province:"四川省",runways:3,runwayLength:4000,elevation:439,openedYear:2021,intro:"基础定位：成都天府国际机场是四川省成都市的大型国际枢纽机场，成都国际航空枢纽的主枢纽；硬件规模：现有三条跑道，最长主跑道4000米，两座航站楼总面积约71万平方米；建设历程：2016年开工建设，2021年6月正式投运；航线规划：航线网络通达国内主要城市及国际航点；地面交通：机场地铁、高铁及高速公路接驳市区与周边城市；运营现状：旅客吞吐量稳步攀升；战略意义：支撑成渝地区双城经济圈建设与区域对外开放。"},
+    {code:"CKG",name:"重庆江北",lng:106.6443,lat:29.6263,fullName:"重庆江北国际机场",province:"重庆市",runways:4,runwayLength:3800,elevation:416,openedYear:1990,intro:"基础定位：重庆江北国际机场是重庆市的大型国际枢纽机场，西南地区重要航空枢纽；硬件规模：现有四条跑道，最长主跑道3800米，三座航站楼；建设历程：1990年建成通航，后陆续扩建第二、第三及第四跑道；航线规划：航线网络通达国内主要城市及众多国际航点；地面交通：机场高速与轨道交通接驳市区；运营现状：旅客吞吐量居中西部机场前列；战略意义：服务成渝地区双城经济圈与区域经济社会发展。"},
+    {code:"WUH",name:"武汉天河",lng:114.1217,lat:30.7824,fullName:"武汉天河国际机场",province:"湖北省",runways:3,runwayLength:3600,elevation:34,openedYear:1995,intro:"基础定位：武汉天河国际机场是湖北省武汉市的民用枢纽机场，中部地区重要航空枢纽；硬件规模：现有三条跑道，最长主跑道3600米，两座航站楼；建设历程：1995年建成通航，2016年第二跑道投用，第三跑道于2025年初投用；航线规划：航线网络通达国内主要城市及部分国际航点；地面交通：机场高速与地铁接驳市区；运营现状：旅客吞吐量居中部机场前列；战略意义：服务中部崛起与区域经济社会发展。"},
+    {code:"HGH",name:"杭州萧山",lng:120.4331,lat:30.2217,fullName:"杭州萧山国际机场",province:"浙江省",runways:2,runwayLength:3600,elevation:7,openedYear:2000,intro:"基础定位：杭州萧山国际机场是浙江省杭州市的大型国际枢纽机场，浙江省空中门户；硬件规模：现有两条跑道，最长主跑道3600米，三座航站楼；建设历程：2000年12月建成通航，2012年第二跑道及T2航站楼投运；航线规划：航线网络通达国内主要城市及众多国际航点；地面交通：机场高速与地铁接驳市区；运营现状：旅客吞吐量居全国大型机场前列；战略意义：服务浙江经济社会发展与长三角一体化。"},
+    {code:"XIY",name:"西安咸阳",lng:108.7516,lat:34.4476,fullName:"西安咸阳国际机场",province:"陕西省",runways:3,runwayLength:3800,elevation:479,openedYear:1991,intro:"基础定位：西安咸阳国际机场是陕西省西安市的大型国际枢纽机场，西北地区核心航空枢纽；硬件规模：现有三条跑道，最长主跑道3800米，四座航站楼；建设历程：现址机场1991年建成通航，后陆续扩建第二跑道及东航站楼，第三跑道于2025年底投运；航线规划：航线网络通达国内主要城市及国际航点；地面交通：机场高速与城际铁路接驳西安咸阳两市；运营现状：旅客吞吐量居西北机场首位；战略意义：服务西部大开发与区域对外开放。"},
+    {code:"NKG",name:"南京禄口",lng:118.7876,lat:31.7435,fullName:"南京禄口国际机场",province:"江苏省",runways:2,runwayLength:3600,elevation:15,openedYear:1997,intro:"基础定位：南京禄口国际机场是江苏省南京市的民用国际枢纽机场，江苏省主要空中门户；硬件规模：现有两条平行跑道，均长3600米，两座航站楼；建设历程：1997年7月建成通航，2014年第二跑道及T2航站楼投运；航线规划：航线网络通达国内主要城市及部分国际航点；地面交通：机场高速与地铁接驳市区；运营现状：旅客吞吐量居全国大型机场行列；战略意义：服务江苏经济社会发展与长三角一体化。"},
+    {code:"TSN",name:"天津滨海",lng:117.348,lat:39.1278,fullName:"天津滨海国际机场",province:"天津市",runways:2,runwayLength:3600,elevation:3,openedYear:1950,intro:"基础定位：天津滨海国际机场是天津市的民用国际机场，京津冀地区重要航空枢纽；硬件规模：现有两条跑道，最长主跑道3600米，两座航站楼；建设历程：场址始建于1939年，1950年开通新中国首条民用航线，后历经多次改扩建；航线规划：航线网络通达国内主要城市及部分国际航点；地面交通：机场高速与地铁接驳市区；运营现状：旅客吞吐量稳步增长；战略意义：服务京津冀协同发展与区域经济社会发展。"},
+    {code:"TAO",name:"青岛胶东",lng:120.0913,lat:36.3653,fullName:"青岛胶东国际机场",province:"山东省",runways:2,runwayLength:3600,elevation:9,openedYear:2021,intro:"基础定位：青岛胶东国际机场是山东省青岛市的大型国际枢纽机场，山东省主要空中门户；硬件规模：现有两条平行远距跑道，均长3600米，航站楼面积约47.8万平方米；建设历程：2021年8月建成转场通航，替代原流亭机场；航线规划：航线网络通达国内主要城市及东北亚国际航点；地面交通：机场高速与地铁接驳市区及周边城市；运营现状：旅客吞吐量稳步增长；战略意义：服务山东半岛城市群与区域经济社会发展。"},
+    {code:"DLC",name:"大连周水子",lng:121.5367,lat:38.9644,fullName:"大连周水子国际机场",province:"辽宁省",runways:1,runwayLength:3300,elevation:33,openedYear:1973,intro:"基础定位：大连周水子国际机场是辽宁省大连市的民用国际机场，东北地区重要航空口岸；硬件规模：现有一条长3300米的跑道，航站楼面积约15万平方米；建设历程：1973年民航大连站建成开航，后历经多次改扩建；航线规划：航线网络通达国内主要城市及日韩等国际航点；地面交通：机场高速与市区轨道交通接驳；运营现状：旅客吞吐量居东北地区前列；战略意义：服务东北亚国际航运中心建设与区域经济社会发展。"},
+    {code:"CGQ",name:"长春龙嘉",lng:125.6928,lat:43.8499,fullName:"长春龙嘉国际机场",province:"吉林省",runways:1,runwayLength:3200,elevation:215,openedYear:2005,intro:"基础定位：长春龙嘉国际机场是吉林省长春市的民用国际机场，吉林省主要空中门户；硬件规模：现有一条长3200米的跑道，两座航站楼；建设历程：2005年8月建成通航，替代原大房身机场；航线规划：航线网络通达国内主要城市及部分国际航点；地面交通：机场与城际铁路、高速公路无缝衔接；运营现状：旅客吞吐量稳步增长；战略意义：服务吉林全面振兴与区域经济社会发展。"},
+    {code:"HRB",name:"哈尔滨太平",lng:126.242,lat:45.6177,fullName:"哈尔滨太平国际机场",province:"黑龙江省",runways:2,runwayLength:3600,elevation:139,openedYear:1979,intro:"基础定位：哈尔滨太平国际机场是黑龙江省哈尔滨市的民用干线枢纽机场，东北地区重要的国际航空港；硬件规模：现有两条跑道，最长主跑道3600米，航站楼总面积约27万平方米；建设历程：现址机场1979年建成投用，历经多次改扩建，东二跑道于2025年1月投用；航线规划：航线网络覆盖国内主要城市并通达东北亚及欧洲部分航点；地面交通：有机场高速、轨道交通及多条机场巴士线路接驳市区；运营现状：年旅客吞吐量位居东北地区机场前列；战略意义：作为黑龙江省空中门户，服务地方对外开放与经济社会发展。"},
+    {code:"SYX",name:"三亚凤凰",lng:109.511,lat:18.342,fullName:"三亚凤凰国际机场",province:"海南省",runways:1,runwayLength:3400,elevation:29,openedYear:1994,intro:"基础定位：三亚凤凰国际机场是海南省三亚市的民用旅游干线机场，华南地区重要国际航空港；硬件规模：现有一条长3400米的跑道，航站楼总面积约23万平方米；建设历程：1994年7月正式通航，后续历经多轮航站楼扩建；航线规划：航线网络覆盖国内主要城市并通达周边国家及地区旅游航点；地面交通：有机场高速、城际巴士及出租车等方式接驳市区；运营现状：年旅客吞吐量位居海南省内机场前列，旺季航班密集；战略意义：服务海南国际旅游岛建设与区域旅游业发展。"},
+    {code:"HAK",name:"海口美兰",lng:110.458,lat:19.932,fullName:"海口美兰国际机场",province:"海南省",runways:2,runwayLength:3600,elevation:23,openedYear:1999,intro:"基础定位：海口美兰国际机场是海南省海口市的民用干线枢纽机场，海南自由贸易港空中门户；硬件规模：现有两条跑道，最长主跑道3600米，航站楼总面积约68万平方米；建设历程：1999年5月正式通航，二期工程于2021年12月投运进入双跑道双航站楼时代；航线规划：航线网络覆盖国内主要城市并通达东南亚及地区航点；地面交通：有机场高速、城际铁路及城市公交等多种方式接驳市区；运营现状：年旅客吞吐量长期位居华南地区机场前列；战略意义：服务海南自由贸易港建设与区域经济社会发展。"},
+    {code:"KMG",name:"昆明长水",lng:102.942,lat:25.103,fullName:"昆明长水国际机场",province:"云南省",runways:3,runwayLength:4500,elevation:2103,openedYear:2012,intro:"基础定位：昆明长水国际机场是云南省昆明市的民用国际枢纽机场，中国面向南亚东南亚的门户枢纽；硬件规模：已建成三条跑道，最长主跑道4500米（东一跑道，临时关闭改造中），航站楼面积约54万平方米；建设历程：2012年6月转场通航接替巫家坝机场，东二跑道于2026年4月投用，东一跑道同步临时关闭改造、预计2027年重开；航线规划：航线网络覆盖国内主要城市并通达南亚、东南亚、欧洲及大洋洲航点；地面交通：有地铁、机场高速及多条公交线路接驳市区；运营现状：年旅客吞吐量位居西南地区机场前列；战略意义：作为国家面向南亚东南亚辐射中心的空中枢纽，服务区域对外开放。"},
+    {code:"LHW",name:"兰州中川",lng:103.629,lat:36.475,fullName:"兰州中川国际机场",province:"甘肃省",runways:3,runwayLength:4000,elevation:1947,openedYear:1970,intro:"基础定位：兰州中川国际机场是甘肃省兰州市的民用干线机场，西北地区重要航空枢纽；硬件规模：现有三条跑道，最长主跑道4000米，航站楼面积约37万平方米；建设历程：现址机场1970年7月通航接替东岗机场，三期三号航站楼于2025年投运，第三跑道于2026年7月投用；航线规划：航线网络覆盖国内主要城市并通达中亚等国际航点；地面交通：有城际铁路、机场高速及民航巴士接驳市区；运营现状：年旅客吞吐量位居西北地区机场前列；战略意义：作为丝绸之路经济带重要空中节点，服务区域对外开放与地方发展。"},
+    {code:"URC",name:"乌鲁木齐地窝堡",lng:87.477,lat:43.907,fullName:"乌鲁木齐天山国际机场",province:"新疆维吾尔自治区",runways:2,runwayLength:3600,elevation:648,openedYear:1973,intro:"基础定位：乌鲁木齐天山国际机场是新疆维吾尔自治区乌鲁木齐市的民用国际枢纽机场，中国向西开放的门户枢纽；硬件规模：现有两条跑道，最长主跑道3600米，北航站区航站楼于2025年转场投运；建设历程：现址机场1973年建成对外开放，北航站区于2025年4月转场投运并更名天山国际机场；航线规划：航线网络覆盖国内主要城市并通达中亚、欧洲等国际航点；地面交通：有机场高速、城市快速路及公交接驳市区；运营现状：年旅客吞吐量位居西北地区机场前列；战略意义：作为丝绸之路经济带核心区空中枢纽，服务国家向西开放。"},
+    {code:"HFE",name:"合肥新桥",lng:117.782,lat:31.981,fullName:"合肥新桥国际机场",province:"安徽省",runways:1,runwayLength:3400,elevation:63,openedYear:2013,intro:"基础定位：合肥新桥国际机场是安徽省合肥市的民用干线机场，华东地区区域性枢纽；硬件规模：现有一条长3400米的跑道，航站楼面积约11万平方米；建设历程：2013年5月转场通航接替骆岗机场；航线规划：航线网络覆盖国内主要城市并通达部分地区及国际航点；地面交通：有机场高速、机场巴士及城际客运接驳市区；运营现状：年旅客吞吐量已突破千万人次量级；战略意义：作为安徽省空中门户，服务长三角一体化与区域经济社会发展。"},
+    {code:"BFU",name:"蚌埠滕湖",lng:117.376,lat:33.053,fullName:"蚌埠滕湖机场",province:"安徽省",runways:1,runwayLength:2600,elevation:30,openedYear:2026,intro:"基础定位：蚌埠滕湖机场是安徽省蚌埠市的民用支线机场，皖北地区重要航空港；硬件规模：现有一条长2600米的跑道，航站楼面积约2.6万平方米；建设历程：2026年4月正式通航，为安徽省新投运的民用运输机场；航线规划：通航初期开通至深圳等城市航线，后续逐步拓展国内航点；地面交通：有机场快速路及城市公交接驳蚌埠市区；运营现状：处于通航初期，旅客吞吐量随航线拓展稳步增长；战略意义：填补皖北地区纯民用运输机场空白，服务区域经济社会发展。"},
+    {code:"FUG",name:"阜阳西关",lng:115.741,lat:32.897,fullName:"阜阳西关机场",province:"安徽省",runways:1,runwayLength:2800,elevation:32,openedYear:1998,intro:"基础定位：阜阳西关机场是安徽省阜阳市的民用支线机场，皖北地区重要航空港；硬件规模：现有一条长2800米的跑道，航站楼面积约3万平方米；建设历程：现址机场1998年建成通航，2023年跑道延长至2800米并投用新航站楼；航线规划：航线网络覆盖国内多个主要城市；地面交通：有机场巴士、出租车及城市公交接驳市区；运营现状：年旅客吞吐量达百万人次量级；战略意义：服务皖北地区人口出行与区域经济社会发展。"},
+    {code:"XUZ",name:"徐州观音",lng:117.167,lat:34.118,fullName:"徐州观音国际机场",province:"江苏省",runways:1,runwayLength:3400,elevation:33,openedYear:1997,intro:"基础定位：徐州观音国际机场是江苏省徐州市的民用干线机场，淮海经济区中心机场；硬件规模：现有一条长3400米的跑道，航站楼面积约5.8万平方米；建设历程：1997年11月正式通航，2016年更名国际机场，二号航站楼于2018年投用；航线规划：航线网络覆盖国内主要城市并通达部分国际及地区航点；地面交通：有机场高速、城际铁路及机场巴士接驳市区；运营现状：年旅客吞吐量达数百万人次量级；战略意义：作为淮海经济区空中门户，服务区域经济社会发展。"},
+    {code:"BZJ",name:"亳州机场",lng:115.852,lat:33.876,fullName:"亳州机场",province:"安徽省",runways:1,runwayLength:2600,openedYear:2025,intro:"基础定位：亳州机场是安徽省亳州市的民用支线机场，皖北地区重要航空港；硬件规模：现有一条长2600米的跑道，航站楼面积约1.16万平方米；建设历程：2025年11月正式通航，为安徽省新投运的民用运输机场；航线规划：通航初期计划开通多条航线通达国内城市；地面交通：有机场快速路及公交客运接驳亳州市区；运营现状：处于通航初期，旅客吞吐量随航线拓展逐步增长；战略意义：完善安徽省民航布局，服务皖北地区经济社会发展。"},
+    {code:"YIW",name:"义乌",lng:120.034,lat:29.333,fullName:"义乌机场",province:"浙江省",runways:1,runwayLength:3000,elevation:80,openedYear:1991,intro:"基础定位：义乌机场是浙江省义乌市的军民合用民用机场，浙中地区重要航空港；硬件规模：现有一条长3000米的跑道，航站楼面积约3万平方米；建设历程：1991年4月开通民用航班，历经多次改扩建于2017年完成飞行区等级升级；航线规划：航线网络覆盖国内主要城市并通达香港、台北等地区航点；地面交通：有机场公交、出租车及城市快速路接驳义乌市区；运营现状：年旅客吞吐量达两百万人次量级；战略意义：服务义乌小商品市场及浙中地区对外开放与经济社会发展。"},
+    {code:"FOC",name:"福州长乐",lng:119.623,lat:25.931,fullName:"福州长乐国际机场",province:"福建省",runways:2,runwayLength:3600,elevation:14,openedYear:1997,intro:"基础定位：福州长乐国际机场是福建省福州市的民用干线机场，华东地区重要枢纽；硬件规模：现有两条跑道，最长主跑道3600米，航站楼与飞行区设施随二期扩建持续完善；建设历程：1997年6月正式通航，第二跑道于2026年6月投用；航线规划：航线网络覆盖国内主要城市并通达东南亚及欧洲等国际航点；地面交通：有机场高速、城际铁路及机场巴士接驳市区；运营现状：年旅客吞吐量位居东南沿海机场前列；战略意义：作为福建省空中门户，服务21世纪海上丝绸之路核心区建设。"},
+    {code:"XMN",name:"厦门高崎",lng:118.128,lat:24.544,fullName:"厦门高崎国际机场",province:"福建省",runways:1,runwayLength:3400,elevation:18,openedYear:1983,intro:"基础定位：厦门高崎国际机场是福建省厦门市的民用干线机场，东南沿海重要枢纽；硬件规模：现有一条长3400米的跑道，航站楼面积约24万平方米；建设历程：1983年10月正式通航，四号航站楼于2014年投用；航线规划：航线网络覆盖国内主要城市并通达东南亚等国际及地区航点；地面交通：有高快速路、公交及出租车接驳厦门市区；运营现状：年旅客吞吐量位居东南沿海机场前列；战略意义：服务厦门经济特区与区域经济社会发展。"},
+    {code:"WNZ",name:"温州龙湾",lng:120.646,lat:27.918,fullName:"温州龙湾国际机场",province:"浙江省",runways:1,runwayLength:3200,elevation:5,openedYear:1990,intro:"基础定位：温州龙湾国际机场是浙江省温州市的民用干线机场，浙南地区重要航空港；硬件规模：现有一条长3200米的跑道，航站楼面积约15万平方米；建设历程：1990年7月通航，2013年新跑道投用并更名龙湾国际机场；航线规划：航线网络覆盖国内主要城市并通达部分国际及地区航点；地面交通：有轨道交通、机场高速及公交接驳温州市区；运营现状：年旅客吞吐量达千万人次量级；战略意义：服务温州民营经济与浙南闽北地区经济社会发展。"},
+    {code:"CSX",name:"长沙黄花",lng:113.22,lat:28.193,fullName:"长沙黄花国际机场",province:"湖南省",runways:2,runwayLength:3800,elevation:66,openedYear:1989,intro:"基础定位：长沙黄花国际机场是湖南省长沙市的民用国际枢纽机场，中部地区重要枢纽；硬件规模：现有两条跑道，最长主跑道3800米，航站楼面积约37万平方米；建设历程：1989年8月正式通航，第二跑道于2017年投用；航线规划：航线网络覆盖国内主要城市并通达亚洲、欧洲、北美洲等国际航点；地面交通：有地铁、机场高速及磁浮快线接驳市区；运营现状：年旅客吞吐量位居中部地区机场前列；战略意义：作为中部地区空中门户，服务长江经济带与区域经济社会发展。"},
+    {code:"LYA",name:"洛阳北郊",lng:112.367,lat:34.744,fullName:"洛阳北郊机场",province:"河南省",runways:1,runwayLength:2500,elevation:265,openedYear:1987,intro:"基础定位：洛阳北郊机场是河南省洛阳市的民用支线机场，豫西地区重要航空港；硬件规模：现有一条长2500米的跑道，航站楼面积约1.48万平方米；建设历程：1987年9月正式通航，为河南省较早投用的民用运输机场；航线规划：航线网络覆盖国内多个主要城市；地面交通：有机场巴士、出租车及城市道路接驳洛阳市区；运营现状：年旅客吞吐量达百万人次量级；战略意义：服务洛阳历史文化名城旅游与豫西地区经济社会发展。"},
+    {code:"CGO",name:"郑州新郑",lng:113.84,lat:34.51,fullName:"郑州新郑国际机场",province:"河南省",runways:2,runwayLength:3600,elevation:151,openedYear:1997,intro:"基础定位：郑州新郑国际机场是河南省郑州市的民用国际机场，中国八大区域枢纽之一、国际航空货运枢纽；硬件规模：现有两条跑道，最长主跑道3600米，航站楼总面积约61.8万平方米；建设历程：1997年8月建成通航，历经二期、三期改扩建，北跑道延长至3600米；航线规划：航线网络覆盖国内主要城市并连通欧美、东南亚等国际货运航点；地面交通：机场高速、城际铁路及城市轨道交通等多方式接驳郑州市区；运营现状：年旅客吞吐量逾两千万人次，年货邮吞吐量位居全国前列；战略意义：服务中部地区崛起和郑州国家中心城市建设，是空中丝绸之路的重要节点。"},
+    {code:"YNT",name:"烟台蓬莱",lng:120.446,lat:37.405,fullName:"烟台蓬莱国际机场",province:"山东省",runways:1,runwayLength:3400,elevation:47,openedYear:2015,intro:"基础定位：烟台蓬莱国际机场是山东省烟台市的民用国际机场，国家一类航空口岸；硬件规模：现有一条长3400米跑道，航站楼面积约9万平方米；建设历程：2015年5月由莱山机场迁建通航，后续二号航站楼开工建设；航线规划：航线网络覆盖国内主要城市并开通日韩及地区航线；地面交通：机场高速及城市快速路接驳烟台市区；运营现状：年旅客吞吐量已突破千万人次量级；战略意义：服务山东半岛蓝色经济区和对外开放，是胶东地区重要航空门户。"},
+    {code:"WEH",name:"威海大水泊",lng:122.23,lat:37.18,fullName:"威海大水泊国际机场",province:"山东省",runways:1,runwayLength:2600,elevation:44,openedYear:1995,intro:"基础定位：威海大水泊国际机场是山东省威海市的军民合用支线机场；硬件规模：现有一条长2600米跑道，航站楼总面积约2.8万平方米；建设历程：1995年10月由军用机场改造后民航通航，后续经多次改扩建；航线规划：航线通达国内主要城市及韩国等周边国际航点；地面交通：机场公路接驳威海市区及文登方向；运营现状：年旅客吞吐量逾百万人次；战略意义：服务威海对外开放和胶东半岛旅游业发展。"},
+    {code:"NNG",name:"南宁吴圩",lng:108.18,lat:22.607,fullName:"南宁吴圩国际机场",province:"广西壮族自治区",runways:2,runwayLength:3800,elevation:128,openedYear:1962,intro:"基础定位：南宁吴圩国际机场是广西壮族自治区南宁市的军民合用国际机场，面向东盟的区域门户枢纽；硬件规模：现有两条跑道，最长主跑道3800米，航站楼面积约21.5万平方米；建设历程：1962年11月建成通航，二号航站楼于2014年启用，第二跑道于2025年底投运；航线规划：航线网络覆盖国内主要城市并密集连通东盟各国首都和主要城市；地面交通：机场高速、市郊铁路及城市公交接驳南宁市区；运营现状：年旅客吞吐量逾千万人次；战略意义：服务中国东盟合作和西部陆海新通道建设。"},
+    {code:"KWE",name:"贵阳龙洞堡",lng:106.81,lat:26.54,fullName:"贵阳龙洞堡国际机场",province:"贵州省",runways:2,runwayLength:4000,elevation:1139,openedYear:1997,intro:"基础定位：贵阳龙洞堡国际机场是贵州省贵阳市的民用国际机场，西南地区重要区域枢纽；硬件规模：现有两条跑道，最长东跑道4000米，三座航站楼总面积约36万平方米；建设历程：1997年5月建成通航，三期扩建后于2021年进入双跑道运行时代；航线规划：航线网络覆盖国内主要城市并开通东南亚等国际航点；地面交通：机场高速、城市轨道交通及高铁龙洞堡站接驳市区；运营现状：年旅客吞吐量逾两千万人次；战略意义：服务贵州大数据产业和山地旅游发展，是西南地区重要空中门户。"},
+    {code:"LJG",name:"丽江三义",lng:100.24,lat:26.68,fullName:"丽江三义国际机场",province:"云南省",runways:1,runwayLength:3000,elevation:2243,openedYear:1995,intro:"基础定位：丽江三义国际机场是云南省丽江市的民用国际机场，滇西北重要航空口岸；硬件规模：现有一条长3000米跑道，国内及国际候机楼总面积约3.8万平方米；建设历程：1995年7月建成通航，历经两次改扩建，2013年更名国际机场；航线规划：航线通达国内主要城市并开通港澳台及东南亚国际航点；地面交通：机场高速公路接驳丽江市区；运营现状：年旅客吞吐量最高逾七百万人次；战略意义：服务丽江世界文化遗产旅游和滇西北经济社会发展。"},
+    {code:"DYG",name:"张家界荷花",lng:110.44,lat:29.11,fullName:"张家界荷花国际机场",province:"湖南省",runways:1,runwayLength:2600,elevation:217,openedYear:1994,intro:"基础定位：张家界荷花国际机场是湖南省张家界市的干线机场，武陵山片区重要国际航空口岸；硬件规模：现有一条长2600米跑道，二号航站楼面积约4.6万平方米；建设历程：1994年8月建成通航，2017年更名为国际机场并扩建二号航站楼；航线规划：航线通达国内主要城市并开通国际及地区旅游航线；地面交通：机场公路接驳张家界市区；运营现状：年旅客吞吐量约百万人次量级；战略意义：服务张家界世界自然遗产旅游和武陵山区经济社会发展。"},
+    {code:"CNI",name:"大连长海",lng:122.607,lat:39.268,fullName:"长海大长山岛机场",province:"辽宁省",runways:1,runwayLength:800,elevation:34,openedYear:1988,intro:"基础定位：长海大长山岛机场是辽宁省大连市长海县的海岛支线机场，国内为数不多的海岛民用机场；硬件规模：现有一条长800米跑道，航站区建筑面积约2130平方米；建设历程：1988年11月建成通航，1996年停航后于2008年2月复航；航线规划：现主要开通长海至大连的短途通勤航线；地面交通：机场距大长山岛客运码头较近，可衔接海上交通；运营现状：由小型通勤飞机运营，旅客规模较小；战略意义：服务长山群岛海岛居民出行和海洋经济发展。"},
+    {code:"HLD",name:"呼伦贝尔海拉尔",lng:119.839,lat:49.213,fullName:"呼伦贝尔海拉尔国际机场",province:"内蒙古自治区",runways:1,runwayLength:2800,elevation:661,openedYear:1932,intro:"基础定位：呼伦贝尔海拉尔国际机场是内蒙古自治区呼伦贝尔市的民用机场，内蒙古自治区主要机场之一；硬件规模：现有一条长2800米跑道，两座国内航站楼及一座国际候机楼总面积约2.8万平方米；建设历程：1932年建成通航，2007年新跑道启用，2011年更名为呼伦贝尔海拉尔机场，2025年11月升格更名为呼伦贝尔海拉尔国际机场；航线规划：航线通达国内主要城市并开通俄罗斯、蒙古等国际航线；地面交通：机场公路接驳海拉尔市区；运营现状：年旅客吞吐量达数百万人次量级；战略意义：服务呼伦贝尔草原旅游和向北开放门户建设。"},
+    {code:"MDG",name:"牡丹江海浪",lng:129.573,lat:44.523,fullName:"牡丹江海浪国际机场",province:"黑龙江省",runways:1,runwayLength:2600,elevation:269,openedYear:1985,intro:"基础定位：牡丹江海浪国际机场是黑龙江省牡丹江市的军民合用国际机场，国家一类航空口岸；硬件规模：现有一条长2600米跑道，候机楼面积约8200平方米；建设历程：1985年9月民航通航，1998年对外开放，2017年更名为国际机场；航线规划：航线通达国内主要城市并开通俄罗斯、韩国等国际航线；地面交通：机场公路接驳牡丹江市区；运营现状：年旅客吞吐量约百万人次量级；战略意义：服务黑龙江东南部对俄开放和沿边旅游发展。"},
+    {code:"JMU",name:"佳木斯东郊",lng:130.459,lat:46.841,fullName:"佳木斯松江国际机场",province:"黑龙江省",runways:1,runwayLength:2500,elevation:80,openedYear:1959,intro:"基础定位：佳木斯松江国际机场是黑龙江省佳木斯市的军民合用支线机场；硬件规模：现有一条长2500米跑道，航站楼面积约5728平方米；建设历程：1958年组建民航站，1959年正式通航，2000年完成改扩建，2026年1月更名为佳木斯松江国际机场；航线规划：航线通达国内主要城市并开通俄罗斯、韩国等国际航线；地面交通：机场公路接驳佳木斯市区；运营现状：年旅客吞吐量达数十万人次量级；战略意义：服务黑龙江东北部对俄开放和三江平原经济社会发展。"},
+    {code:"NDG",name:"齐齐哈尔三家子",lng:124.016,lat:47.226,fullName:"齐齐哈尔三家子机场",province:"黑龙江省",runways:1,runwayLength:3600,elevation:145,openedYear:1988,intro:"基础定位：齐齐哈尔三家子机场是黑龙江省齐齐哈尔市的军民合用机场，国家一类航空口岸；硬件规模：现有一条长3600米跑道，新航站楼面积约1.8万平方米；建设历程：1988年5月开通民航，2026年初新航站楼及延长跑道投用；航线规划：航线通达国内主要城市并开通国际及地区航线；地面交通：机场公路接驳齐齐哈尔市区；运营现状：年旅客吞吐量约百万人次量级；战略意义：服务黑龙江西部经济和向北开放。"},
+    {code:"BAV",name:"包头二里半",lng:109.998,lat:40.559,fullName:"包头东河国际机场",province:"内蒙古自治区",runways:1,runwayLength:2800,elevation:1012,openedYear:1956,intro:"基础定位：包头东河国际机场是内蒙古自治区包头市的民用支线机场，自治区较早建设的机场之一；硬件规模：现有一条长2800米跑道，国内航站楼面积约3万平方米；建设历程：1934年始建，1956年建立民航站，2018年由二里半机场更名为东河机场，2024年获批更名为包头东河国际机场；航线规划：航线通达国内主要城市并开通国际及地区航线；地面交通：机场公路接驳包头市区；运营现状：年旅客吞吐量约两百万人次量级；战略意义：服务内蒙古中西部工业城市和向北开放。"},
+    {code:"DSN",name:"鄂尔多斯伊金霍洛",lng:109.863,lat:39.49,fullName:"鄂尔多斯伊金霍洛国际机场",province:"内蒙古自治区",runways:1,runwayLength:3200,elevation:1389,openedYear:2007,intro:"基础定位：鄂尔多斯伊金霍洛国际机场是内蒙古自治区鄂尔多斯市的民用国际机场；硬件规模：现有一条长3200米跑道，航站楼面积约10万平方米；建设历程：2007年7月建成通航，2013年改扩建完工，保障能力显著提升；航线规划：航线通达国内主要城市并开通国际航线；地面交通：机场公路接驳鄂尔多斯康巴什新区；运营现状：年旅客吞吐量逾百万人次量级；战略意义：服务鄂尔多斯能源经济和草原旅游发展。"},
+    {code:"CIF",name:"赤峰玉龙",lng:118.835,lat:42.157,fullName:"赤峰玉龙机场",province:"内蒙古自治区",runways:1,runwayLength:2800,elevation:621,openedYear:2008,intro:"基础定位：赤峰玉龙机场是内蒙古自治区赤峰市的军民合用支线机场；硬件规模：现有一条长2800米跑道，航站楼面积约3.1万平方米；建设历程：2008年3月由西郊机场迁建转场通航，2022年改扩建完工；航线规划：航线通达国内主要城市；地面交通：机场公路接驳赤峰市区；运营现状：年旅客吞吐量约百万人次量级；战略意义：服务内蒙古东部经济和旅游发展。"},
+    {code:"DAT",name:"大同云冈",lng:113.593,lat:40.043,fullName:"大同云冈国际机场",province:"山西省",runways:1,runwayLength:3000,elevation:1049,openedYear:2005,intro:"基础定位：大同云冈国际机场是山西省大同市的民用支线机场，山西第二座国际机场；硬件规模：现有一条长3000米跑道，一号和二号两座航站楼总面积约1.7万平方米；建设历程：2005年12月建成通航，2012年更名云冈机场，2024年升级为国际机场；航线规划：航线通达国内主要城市并开通国际及地区航线；地面交通：机场公路接驳大同市区；运营现状：年旅客吞吐量达数十万人次量级；战略意义：服务大同历史文化旅游和晋北能源基地建设。"},
+    {code:"YCU",name:"运城张孝",lng:111.039,lat:35.114,fullName:"运城盐湖国际机场",province:"山西省",runways:1,runwayLength:3200,elevation:379,openedYear:2005,intro:"基础定位：运城盐湖国际机场是山西省运城市的民用国际机场，山西省第二大机场；硬件规模：现有一条长3200米跑道，两座航站楼总面积约5.5万平方米；建设历程：2005年2月建成通航，2024年由张孝机场更名盐湖国际机场并完成飞行区升级；航线规划：航线通达国内主要城市并开通国际航线；地面交通：机场公路接驳运城市区；运营现状：年旅客吞吐量逾两百万人次量级；战略意义：服务晋陕豫黄河金三角和关公文化旅游发展。"},
+    {code:"HDG",name:"邯郸",lng:114.424,lat:36.527,fullName:"邯郸机场",province:"河北省",runways:1,runwayLength:2600,elevation:73,openedYear:2007,intro:"基础定位：邯郸机场是河北省南部地区的民用支线机场，服务冀南及周边区域航空出行；硬件规模：现有一条长2600米跑道，航站楼与站坪机位配套完善；建设历程：2007年8月建成通航，后经飞行区扩建将跑道延长至2600米，二号航站楼于2020年转场启用；航线规划：航线网络通达国内多个主要城市，满足商务与旅游出行需求；地面交通：有机场道路连接市区及周边公路网，旅客换乘便捷；运营现状：年旅客吞吐量稳步增长，保障能力持续提升；战略意义：作为冀南地区空中门户，服务区域经济社会发展。"},
+    {code:"ZQZ",name:"张家口宁远",lng:114.926,lat:40.736,fullName:"张家口宁远机场",province:"河北省",runways:1,runwayLength:3000,elevation:715,openedYear:2013,intro:"基础定位：张家口宁远机场是河北省西北部的军民合用支线机场；硬件规模：现有一条长3000米跑道，设两座航站楼及多个站坪机位；建设历程：2013年6月开通民航业务，2020年完成改扩建并启用二号航站楼，跑道延长至3000米；航线规划：航线通达国内主要城市，并依托冬季旅游资源加密航班；地面交通：机场距市中心较近，有公路连接市区；运营现状：旅客吞吐量随体育文化旅游带建设持续增长；战略意义：作为冀西北空中通道，服务地方经济社会发展和冰雪旅游。"},
+    {code:"CZX",name:"常州奔牛",lng:119.732,lat:31.915,fullName:"常州奔牛国际机场",province:"江苏省",runways:1,runwayLength:3400,elevation:7,openedYear:1986,intro:"基础定位：常州奔牛国际机场是江苏省南部的军民合用国际机场，服务常州及周边城市航空出行；硬件规模：现有一条长3400米跑道，航站楼面积约3.8万平方米，停机位充足；建设历程：1986年3月开通民航业务，历经多次改扩建将跑道延长至3400米，2015年更名为国际机场；航线规划：航线网络覆盖国内主要城市并开通地区及国际航线；地面交通：有机场高速及城市道路连接常州及周边城市；运营现状：年旅客吞吐量稳步增长，货邮保障能力较强；战略意义：作为长三角地区重要干线机场，服务区域外向型经济发展。"},
+    {code:"WUX",name:"无锡硕放",lng:120.432,lat:31.492,fullName:"苏南硕放国际机场",province:"江苏省",runways:1,runwayLength:3200,elevation:5,openedYear:2004,intro:"基础定位：苏南硕放国际机场是江苏省无锡市的军民合用国际机场，是苏南地区重要航空枢纽；硬件规模：现有一条长3200米跑道，两座航站楼合计约10.6万平方米，可保障宽体客机运行；建设历程：2004年2月正式开通民用航班，后经扩建提升飞行区等级，两座航站楼相继启用；航线规划：航线网络覆盖国内主要城市并通达国际及地区航点；地面交通：机场高速与城市快速路衔接，轨道交通直达市区；运营现状：年旅客吞吐量位居江苏省前列，货邮业务繁忙；战略意义：作为苏南地区重要枢纽机场，服务区域产业与对外开放。"},
+    {code:"NTG",name:"南通兴东",lng:120.958,lat:32.071,fullName:"南通兴东国际机场",province:"江苏省",runways:1,runwayLength:3400,elevation:5,openedYear:1993,intro:"基础定位：南通兴东国际机场是江苏省南通市的民用国际机场，为上海国际航空枢纽辅助机场；硬件规模：现有一条长3400米跑道，航站楼及站坪配套完善；建设历程：1993年8月建成通航，后经改扩建将跑道延长至3400米并扩容航站楼；航线规划：航线通达国内主要城市并开通国际地区航线；地面交通：临近高速公路，有机场道路连接市区及周边跨江通道；运营现状：年旅客吞吐量与货邮吞吐量增长较快；战略意义：作为苏中空港，服务南通及长三角北翼经济社会发展。"},
+    {code:"YTY",name:"扬州泰州",lng:119.712,lat:32.562,fullName:"扬州泰州国际机场",province:"江苏省",runways:1,runwayLength:3200,elevation:5,openedYear:2012,intro:"基础定位：扬州泰州国际机场是江苏省扬州、泰州两市共建的民用国际机场；硬件规模：现有一条长3200米跑道，航站楼约3.1万平方米；建设历程：2012年5月建成通航，2016年更名国际机场，2018年跑道延长至3200米；航线规划：航线网络覆盖国内主要城市并开通国际地区航线；地面交通：机场位于两市之间，临近高速公路和铁路，公路接驳便利；运营现状：年旅客吞吐量突破数百万人次，稳步增长；战略意义：作为苏中地区空中门户，服务扬州泰州及周边区域发展。"},
+    {code:"HSN",name:"舟山普陀",lng:122.367,lat:29.936,fullName:"舟山普陀山国际机场",province:"浙江省",runways:1,runwayLength:2500,elevation:2,openedYear:1997,intro:"基础定位：舟山普陀山国际机场是浙江省舟山市的海岛民用机场；硬件规模：现有一条长2500米跑道，航站楼由国内、国际部分组成，地处朱家尖岛；建设历程：1997年8月建成通航，后经航站楼改扩建，2024年更名为国际机场；航线规划：航线通达国内主要城市并开通香港等地区航线；地面交通：通过跨海大桥与舟山本岛连接，公路接驳便捷；运营现状：年旅客量随海岛旅游持续增长；战略意义：作为舟山群岛对外空中通道，服务海岛旅游和海洋经济发展。"},
+    {code:"YNZ",name:"盐城南洋",lng:120.185,lat:33.423,fullName:"盐城南洋国际机场",province:"江苏省",runways:1,runwayLength:2800,elevation:3,openedYear:2000,intro:"基础定位：盐城南洋国际机场是江苏省盐城市的军民合用国际机场，为国家一类航空开放口岸；硬件规模：现有一条长2800米跑道，两座航站楼及多个机位；建设历程：2000年3月建成开通民航航班，2009年实现对外开放，2017年更名国际机场，二号航站楼随后投用；航线规划：航线通达国内主要城市，并开通韩日等国际及地区航线；地面交通：机场距市中心较近，迎宾大道直通市区；运营现状：年旅客吞吐量稳步增长，对韩航线特色鲜明；战略意义：作为江苏沿海中心机场，服务外向型经济和区域发展。"},
+    {code:"LYI",name:"临沂启阳",lng:118.417,lat:35.058,fullName:"临沂启阳国际机场",province:"山东省",runways:1,runwayLength:3200,elevation:68,openedYear:1998,intro:"基础定位：临沂启阳国际机场是山东省临沂市的民用国际机场；硬件规模：现有一条长3200米跑道及等长平行滑行道，航站楼约1.76万平方米；建设历程：1998年12月迁建后复航，2017年跑道延长至3200米，2024年获批为国际机场；航线规划：航线通达国内主要城市并拓展国际地区航线；地面交通：机场距市区约7.8公里，城市道路接驳便利；运营现状：年旅客吞吐量位居山东省前列；战略意义：作为鲁南地区空中门户，服务商贸物流和区域经济发展。"},
+    {code:"YIH",name:"宜昌三峡",lng:111.443,lat:30.695,fullName:"宜昌三峡国际机场",province:"湖北省",runways:1,runwayLength:3200,elevation:188,openedYear:1996,intro:"基础定位：宜昌三峡国际机场是湖北省宜昌市的民用国际机场；硬件规模：现有一条长3200米跑道及平行滑行道，两座航站楼，可保障远程宽体客机；建设历程：1996年12月建成通航，2022年跑道延长至3200米并启用二号航站楼，2024年更名国际机场；航线规划：航线通达国内主要城市并开通至东南亚国际航线；地面交通：有机场高速连接市区，临近三峡旅游区；运营现状：年旅客吞吐量位居湖北省第二位；战略意义：作为三峡工程配套交通设施，服务长江经济带和区域旅游发展。"},
+    {code:"XFN",name:"襄阳刘集",lng:112.293,lat:32.143,fullName:"襄阳刘集机场",province:"湖北省",runways:1,runwayLength:2600,elevation:72,openedYear:1989,intro:"基础定位：襄阳刘集机场是湖北省襄阳市的民用支线机场；硬件规模：现有一条长2600米跑道，两座航站楼；建设历程：1989年12月建成通航，是全国首家由地方政府集资修建的民用机场，后经改扩建延长跑道，二号航站楼于2017年投用；航线规划：航线通达国内主要城市；地面交通：机场位于市区东北约18公里，有公路连接市区；运营现状：年旅客吞吐量稳步增长；战略意义：作为鄂西北空中通道，服务区域经济社会发展。"},
+    {code:"KOW",name:"赣州黄金",lng:114.782,lat:25.856,fullName:"赣州黄金机场",province:"江西省",runways:1,runwayLength:2600,elevation:135,openedYear:2008,intro:"基础定位：赣州黄金机场是江西省赣州市的民用支线机场；硬件规模：现有一条长2600米跑道，两座航站楼；建设历程：现址于2008年3月建成通航，老机场同步关闭，后扩建二号航站楼；航线规划：航线通达国内主要城市；地面交通：机场距市中心约16公里，公路接驳便利；运营现状：年旅客吞吐量居江西省前列；战略意义：作为赣南地区空中门户，服务革命老区振兴和区域发展。"},
+    {code:"TXN",name:"黄山屯溪",lng:118.246,lat:29.911,fullName:"黄山屯溪国际机场",province:"安徽省",runways:1,runwayLength:2600,elevation:134,openedYear:1959,intro:"基础定位：黄山屯溪国际机场是安徽省黄山市的民用国际机场，为旅游机场；硬件规模：现有一条长2600米跑道，航站楼约1.46万平方米；建设历程：1959年10月建成通航，历经多次改扩建，2014年获批为国际机场；航线规划：航线通达国内主要城市并开通国际地区旅游航线；地面交通：机场距市中心约5.5公里，有机场道路接驳；运营现状：旅客吞吐量随黄山旅游淡旺季波动；战略意义：作为皖南国际旅游文化示范区空中门户，服务旅游经济发展。"},
+    {code:"UYN",name:"榆林榆阳",lng:109.746,lat:38.258,fullName:"榆林榆阳机场",province:"陕西省",runways:1,runwayLength:3200,elevation:1180,openedYear:2008,intro:"基础定位：榆林榆阳机场是陕西省榆林市的民用机场；硬件规模：现有一条长3200米跑道，航站楼经扩建后保障能力提升；建设历程：2008年4月由西沙机场迁建至现址通航，后经二期扩建将跑道延长至3200米；航线规划：航线通达国内主要城市；地面交通：机场距市中心约15.5公里，公路接驳便利；运营现状：年旅客吞吐量居陕西省第二位；战略意义：作为陕北地区重要机场，服务能化基地建设和区域经济发展。"},
+    {code:"JHG",name:"西双版纳嘎洒",lng:100.757,lat:21.979,fullName:"西双版纳嘎洒国际机场",province:"云南省",runways:1,runwayLength:2400,elevation:553,openedYear:1990,intro:"基础定位：西双版纳嘎洒国际机场是云南省西双版纳傣族自治州的民用国际机场；硬件规模：现有一条长2400米跑道，航站楼约3.3万平方米，机位配套完善；建设历程：1990年4月建成通航，1997年航空口岸对外开放，二号航站楼2012年启用，2023年更名国际机场；航线规划：航线通达国内主要城市并开通东南亚国际航线；地面交通：机场距景洪市区约5公里，公路接驳便利；运营现状：年旅客吞吐量居云南省前列，旅游客流旺盛；战略意义：作为面向南亚东南亚的空中门户，服务热带旅游和沿边开放。"},
+    {code:"DLU",name:"大理荒草坝",lng:100.173,lat:25.716,fullName:"大理凤仪机场",province:"云南省",runways:1,runwayLength:2600,elevation:2155,openedYear:1995,intro:"基础定位：大理凤仪机场是云南省大理白族自治州的民用旅游支线机场，为高原机场；硬件规模：现有一条长2600米跑道，航站楼约2.1万平方米，机位配套完善；建设历程：1995年11月建成通航，2009年二号航站楼启用，2022年由荒草坝机场更名为凤仪机场；航线规划：航线通达国内主要城市；地面交通：机场距大理市区约13公里，公路接驳便利；运营现状：旅客吞吐量随大理旅游快速增长；战略意义：作为滇西旅游空中门户，服务民族团结进步和区域旅游发展。"},
+    {code:"MIG",name:"绵阳南郊",lng:104.736,lat:31.426,fullName:"绵阳南郊机场",province:"四川省",runways:1,runwayLength:2400,elevation:519,openedYear:2001,intro:"基础定位：绵阳南郊机场是四川省绵阳市的民用机场；硬件规模：现有一条长2400米跑道，两座航站楼合计约4.8万平方米，设20个停机位；建设历程：2001年4月建成通航，2003年提升运行等级，二号航站楼于2022年投用；航线规划：航线通达国内主要城市；地面交通：机场距市区约10公里，临近高铁站和高速公路；运营现状：年旅客吞吐量居四川省第二位；战略意义：作为川北地区重要机场，服务科技城建设和区域经济发展。"},
+    {code:"ZHA",name:"湛江吴川",lng:110.448,lat:21.228,fullName:"湛江吴川国际机场",province:"广东省",runways:1,runwayLength:3200,elevation:39,openedYear:2022,intro:"基础定位：湛江吴川国际机场是广东省粤西地区的干线国际机场；硬件规模：现有一条长3200米跑道及等长平行滑行道，航站楼6.18万平方米，30个停机位；建设历程：2022年3月由湛江机场迁建至现址通航，2025年开通首条国际航线；航线规划：航线通达国内主要城市并拓展东南亚国际航线；地面交通：机场位于湛江、茂名之间，公路接驳两市；运营现状：按年旅客吞吐量510万人次设计，运行快速增长；战略意义：作为粤西最大民航机场，服务北部湾城市群和区域协调发展。"},
 ];
 
 // ========== 场景数据 ==========
@@ -738,7 +844,6 @@ let globalState = {
     flyKmPerMin: 13.33,
     totalKm: 0,
     remainMin: 0,
-    flyTimer: null,
     isFlyPause: false,
     rangeCircle: null,
     routeLine: null,
@@ -750,7 +855,9 @@ let globalState = {
     airportMarkers: [],
     doneKm: 0,
     showLabels: true,
-    userInteracting: false,
+    // 自动跟随视角（默认关闭）。关闭时地图完全不动，避免逐帧重排导致抖动；
+    // 开启后也是"超出阈值才重新居中"，而不是每帧调用，以兼顾流畅与便利。
+    autoFollow: false,
     routePane: null,
     customTileUrl: '',
     defaultMapStyle: 'sat',
@@ -758,6 +865,7 @@ let globalState = {
     startAirCode: null,
     activeModals: [],
     planePos: { lat: 0, lng: 0 },
+    planeDeg: 0,
     flyStartTime: 0,
     flyElapsedSeconds: 0
 };
@@ -862,19 +970,38 @@ function refreshAttributionVisibility(){
     updateAttributionMode();
 }
 
+// 读取元素真实的 opacity 过渡时长，避免把 360ms 硬编码在 JS 里与 CSS 脱节。
+// CSS 里若调整过渡时间，这里的隐藏延时会自动跟随。
+function getFadeDuration(el){
+    if(!el || !window.getComputedStyle) return 360;
+    const list = getComputedStyle(el).transitionDuration || '';
+    const first = list.split(',')[0].trim();
+    if(!first) return 360;
+    let ms = parseFloat(first);
+    if(isNaN(ms) || ms <= 0) return 360;
+    if(first.indexOf('ms') === -1) ms *= 1000; // 无单位或 s 均按秒处理
+    return Math.min(2000, ms + 40); // 留一点余量，确保过渡确实结束
+}
+
+// 这些面板共用 .setting-pop 样式，需要统一的遮罩与点击外部关闭行为
+const SETTING_STYLE_MODALS = ['settingPop','historyPop','wikiPop','wikiDetailPop','archivePop','planPop'];
+
 function closeAllModals(except) {
-    const allModals = ['airportModal','seatModal','ticketModal','takeoffModal','cruiseModal','destSearchPop','addScenePop','settingPop','historyPop'];
+    const allModals = ['airportModal','seatModal','ticketModal','takeoffModal','cruiseModal','destSearchPop','addScenePop','settingPop','historyPop','wikiPop','wikiDetailPop','archivePop','planPop'];
     allModals.forEach(id => {
         if(id !== except) {
             const el = document.getElementById(id);
             if(el && el.classList.contains('show')) {
                 el.classList.remove('show');
-                setTimeout(()=>{ if(!el.classList.contains('show')) el.style.display = 'none'; }, 360);
+                // 若该元素正在被 showModal 重新打开，下面的兜底不会误隐藏它
+                setTimeout(()=>{ if(!el.classList.contains('show')) el.style.display = 'none'; }, getFadeDuration(el));
             }
         }
     });
-    if(except !== 'settingPop') {
-        document.getElementById('settingOverlay').classList.remove('active');
+    // 只有关闭全部 setting 类面板后才撤掉遮罩，避免维基→详情切换时遮罩闪一下
+    if(!SETTING_STYLE_MODALS.includes(except)) {
+        const ov = document.getElementById('settingOverlay');
+        if(ov) ov.classList.remove('active');
     }
 }
 
@@ -888,7 +1015,7 @@ function showModal(id){
     if(id === 'cruiseModal') setAttributionVisible(true);
     else setAttributionVisible(false);
     updateAttributionMode();
-    if(id === 'settingPop') {
+    if(SETTING_STYLE_MODALS.includes(id)) {
         document.getElementById('settingOverlay').classList.add('active');
     }
 }
@@ -899,10 +1026,11 @@ function hideModal(id){
     setTimeout(()=>{
         if(!el.classList.contains('show')) el.style.display = 'none';
         refreshAttributionVisibility();
-        if(id === 'settingPop') {
-            document.getElementById('settingOverlay').classList.remove('active');
+        if(SETTING_STYLE_MODALS.includes(id)) {
+            const ov = document.getElementById('settingOverlay');
+            if(ov) ov.classList.remove('active');
         }
-    }, 360);
+    }, getFadeDuration(el));
 }
 
 // ========== Toast ==========
@@ -927,7 +1055,11 @@ let amapSat, amapSatLabel, amapRoad, osmLayer, customLayer;
 
 function initMap() {
     if (typeof L === 'undefined') {
-        alert('Leaflet 库加载失败，请刷新页面或检查网络！');
+        // 地图库不可用时仍要绑定 UI 事件，否则整个应用的按钮全部失效，
+        // 用户除了一个 alert 之外没有任何反馈。这里降级为"可用但无地图"。
+        alert('地图库加载失败：\n本地 vendor/leaflet.js 不存在，且当前无法连接网络。\n其余功能仍可使用，恢复 vendor 目录后刷新即可显示地图。');
+        bindUIEvents();
+        updateHomeAirportInfo();
         return;
     }
     const tileOptions = {
@@ -971,25 +1103,20 @@ function initMap() {
 }
 
 function switchLayer(type) {
-    if (map.hasLayer(amapSatLabel)) map.removeLayer(amapSatLabel);
-    if (globalState.currentTile) map.removeLayer(globalState.currentTile);
-
+    // 关键：先解析出要用的图层并校验，再移除当前图层。
+    // 旧实现先 removeLayer 再校验 custom URL，导致"自定义"未填 URL 时地图变空白且无法恢复。
     let newLayer;
     let newCoord = 'wgs84';
     let attr = '';
+    let useLabel = false;
 
     if (type === 'osm') {
         newLayer = osmLayer;
         newCoord = 'wgs84';
         attr = '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a>';
-    } else if (type === 'sat') {
+    } else if (type === 'sat' || type === 'satLabel') {
         newLayer = amapSat;
-        if(globalState.showLabels) amapSatLabel.addTo(map);
-        newCoord = 'gcj02';
-        attr = '<a href="https://www.autonavi.com/" target="_blank" rel="noopener">© 高德地图</a>';
-    } else if (type === 'satLabel') {
-        newLayer = amapSat;
-        if(globalState.showLabels) amapSatLabel.addTo(map);
+        useLabel = true;
         newCoord = 'gcj02';
         attr = '<a href="https://www.autonavi.com/" target="_blank" rel="noopener">© 高德地图</a>';
     } else if (type === 'road') {
@@ -999,27 +1126,40 @@ function switchLayer(type) {
     } else if (type === 'custom') {
         const url = getStorage('customTileUrl', '');
         if(!url) {
+            // 校验失败：此时尚未动过任何图层，地图保持原样，用户可以继续操作。
             toast('请先在设置中填写自定义瓦片URL');
-            return;
+            return false;
         }
-        if(customLayer) map.removeLayer(customLayer);
-        customLayer = L.tileLayer(url, {
-            attribution: '自定义图层',
-            maxZoom: 18,
-            tileSize: 256,
-            errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
-        });
-        newLayer = customLayer;
+        // 复用已有 customLayer，避免每次切回都重建并重新请求瓦片
+        if(customLayer && customLayer._url === url) {
+            newLayer = customLayer;
+        } else {
+            if(customLayer && map.hasLayer(customLayer)) map.removeLayer(customLayer);
+            customLayer = L.tileLayer(url, {
+                attribution: '自定义图层',
+                maxZoom: 18,
+                tileSize: 256,
+                errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+            });
+            newLayer = customLayer;
+        }
         newCoord = 'wgs84';
         attr = '自定义图层';
     } else {
         newLayer = amapSat;
-        if(globalState.showLabels) amapSatLabel.addTo(map);
+        useLabel = true;
         newCoord = 'gcj02';
         attr = '<a href="https://www.autonavi.com/" target="_blank" rel="noopener">© 高德地图</a>';
     }
 
+    // 校验通过后才真正切换：先摘掉旧图层，再挂新图层。
+    if (map.hasLayer(amapSatLabel)) map.removeLayer(amapSatLabel);
+    if (globalState.currentTile && globalState.currentTile !== newLayer) {
+        map.removeLayer(globalState.currentTile);
+    }
+
     globalState.currentTile = newLayer.addTo(map);
+    if (useLabel && globalState.showLabels) amapSatLabel.addTo(map);
     document.getElementById("customAttribution").innerHTML = attr;
 
     if (globalState.currentCoordSystem !== newCoord) {
@@ -1081,8 +1221,9 @@ function getRouteBearing(){
 }
 function createPlaneMarker(lat,lng){
     const bearing = getRouteBearing();
+    globalState.planeDeg = bearing; // 记录当前机头角度，供逐帧平滑使用
     const planeIcon = L.divIcon({
-        html: `<div class="plane-icon" style="transform:rotate(${bearing}deg)">${iconSvg.plane}<div class="plane-trail"></div></div>`,
+        html: `<div class="plane-icon" style="--plane-deg:${bearing}deg;transform:rotate(${bearing}deg)">${iconSvg.plane}<div class="plane-trail"></div></div>`,
         iconSize: [48, 48],
         iconAnchor: [24, 24],
         className: 'plane-marker-div'
@@ -1126,6 +1267,9 @@ function renderAllAirportMarker(){
     });
 }
 
+// showAirportMarkers 在结束飞行时恢复全部机场标记；
+// hideAirportMarkers 目前无调用点（飞行时改由 showFlightAirportMarkers 只保留起降两端），
+// 保留作为对称的辅助函数，仅在需要"一键隐藏全部标记"时使用。
 function hideAirportMarkers(){
     globalState.airportMarkers.forEach(m => { if(map.hasLayer(m)) map.removeLayer(m); });
 }
@@ -1172,10 +1316,35 @@ function getDistance(lat1,lng1,lat2,lng2){
     return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
 
+// 固定机场飞行时间：同一对机场在同一飞行速度下始终得到相同分钟数。
+// 先计算并缓存，滑动时间条时只做筛选，不重新改变机场自身的飞行时间。
+let airportMinutesCache = new Map();
+let airportMinutesCacheKey = '';
+
+function rebuildAirportMinutesCache(){
+    airportMinutesCache.clear();
+    if(!globalState.startAir) {
+        airportMinutesCacheKey = '';
+        return;
+    }
+    airportMinutesCacheKey = `${globalState.startAir.code}|${globalState.flyKmPerMin}`;
+    airportDB.forEach(air=>{
+        if(air.code === globalState.startAir.code) return;
+        const dis = getDistance(
+            globalState.startAir.lat,
+            globalState.startAir.lng,
+            air.lat,
+            air.lng
+        );
+        airportMinutesCache.set(air.code, Math.max(1, Math.round(dis / globalState.flyKmPerMin)));
+    });
+}
+
 function getAirportMinutes(air){
-    if(!globalState.startAir) return 0;
-    const dis = getDistance(globalState.startAir.lat, globalState.startAir.lng, air.lat, air.lng);
-    return Math.max(1, Math.round(dis / globalState.flyKmPerMin));
+    if(!globalState.startAir || !air) return 0;
+    const key = `${globalState.startAir.code}|${globalState.flyKmPerMin}`;
+    if(key !== airportMinutesCacheKey) rebuildAirportMinutesCache();
+    return airportMinutesCache.get(air.code) || 0;
 }
 
 // ===== 修复1：搜索时忽略时间范围 =====
@@ -1186,46 +1355,53 @@ function filterAirportByRange(min, keyword=''){
         wrap.innerHTML = `<div class="airport-empty">请先选择起点机场（点击地图上的机场标记）</div>`;
         return;
     }
+
     const centerLat = globalState.startAir.lat;
     const centerLng = globalState.startAir.lng;
     const key = keyword.trim().toUpperCase();
 
+    // 机场自身的距离和分钟数固定缓存；滑块只负责筛选目标时间范围。
+    const cacheKey = `${globalState.startAir.code}|${globalState.flyKmPerMin}`;
+    if(cacheKey !== airportMinutesCacheKey) rebuildAirportMinutesCache();
+
     let list = airportDB
-        .filter(air=>air.code !== globalState.startAir.code)
-        .map(air=>{
-            const dis = getDistance(centerLat,centerLng,air.lat,air.lng);
-            return {...air, dis, minutes: Math.max(1, Math.round(dis/globalState.flyKmPerMin))};
+        .filter(air => air.code !== globalState.startAir.code)
+        .map(air => {
+            const dis = getDistance(centerLat, centerLng, air.lat, air.lng);
+            const minutes = getAirportMinutes(air);
+            return {...air, dis, minutes};
         });
 
-    // 如果有搜索关键词，忽略时间范围，只按关键词匹配
     if(key){
-        list = list.filter(air=>air.code.includes(key) || air.name.includes(key));
+        // 搜索机场时不受时间范围限制，但显示的分钟数仍然使用固定计算结果。
+        list = list.filter(air => air.code.includes(key) || air.name.includes(key));
     } else {
-        // 否则按时间范围筛选（±10分钟）
-        const maxKm = (min + 10) * globalState.flyKmPerMin;
-        const minKm = Math.max(0, (min - 10) * globalState.flyKmPerMin);
-        list = list.filter(air => air.dis >= minKm && air.dis <= maxKm);
+        // 滑块只决定筛选范围；同一个机场的 minutes 永远不会因为滑块位置变化而改变。
+        const minMinute = Math.max(1, Number(min) - 10);
+        const maxMinute = Number(min) + 10;
+        list = list.filter(air => air.minutes >= minMinute && air.minutes <= maxMinute);
     }
-    list.sort((a,b)=>a.dis - b.dis);
+
+    list.sort((a,b) => a.dis - b.dis);
 
     if(list.length === 0){
         wrap.innerHTML = `<div class="airport-empty">未找到匹配的机场<br><span style="font-size:12px;color:#888">可尝试调整时间或更换起点</span></div>`;
         return;
     }
 
-    list.forEach(air=>{
+    list.forEach(air => {
         const item = document.createElement("div");
         item.className = "airport-list-item anim-slide-up";
         item.innerHTML = `<span><span class="airport-tag">${air.code}</span>${air.name}</span><span class="airport-meta">${air.minutes}m · ${Math.round(air.dis)}km</span>`;
-        item.onclick = ()=>openDestSearch(air);
+        item.onclick = () => openDestSearch(air);
         wrap.appendChild(item);
     });
 }
-
 function selectStartAirport(airObj){
     globalState.startAir = airObj;
     globalState.hasSetStart = true;
     globalState.startAirCode = airObj.code;
+    rebuildAirportMinutesCache();
     setStorage('startAirCode', airObj.code);
     setStorage('hasSetStart', true);
     document.getElementById('airportMainSearch').value = '';
@@ -1268,7 +1444,7 @@ function confirmDestAir(endAir){
     hideModal('destSearchPop');
     drawRouteLine();
     globalState.totalKm = totalKm;
-    globalState.remainMin = Math.max(1, Math.ceil(totalKm / globalState.flyKmPerMin));
+    globalState.remainMin = getAirportMinutes(endAir);
     hideModal('airportModal');
     showModal('seatModal');
     renderAllSeat();
@@ -1403,7 +1579,11 @@ function renderSceneList(){
             del.onclick = function(e){
                 e.stopPropagation();
                 if(confirm(`删除场景“${sc.name}”？`)) {
-                    userSceneList.splice(idx, 1);
+                    // 按"名称"删除，而不是按闭包捕获的 idx。
+                    // 旧写法用 forEach 的 idx，一旦列表因其他操作增删过，索引就会指向错误的场景。
+                    const delIdx = userSceneList.findIndex(s => s.name === sc.name);
+                    if(delIdx === -1) { renderSceneList(); return; }
+                    userSceneList.splice(delIdx, 1);
                     setStorage("sceneSave", userSceneList);
                     renderSceneList();
                     if(globalState.currScene.name === sc.name) {
@@ -1455,14 +1635,17 @@ let flyAnimId = null;
 let lastFlyTime = 0;
 
 function startFlyTimer(){
+    // 飞行推进统一由 requestAnimationFrame 驱动（旧的 setInterval 方案已废弃，
+    // 因此不再需要 flyTimer 的清理逻辑）。
     if(flyAnimId) cancelAnimationFrame(flyAnimId);
-    if(globalState.flyTimer) {
-        clearInterval(globalState.flyTimer);
-        globalState.flyTimer = null;
-    }
 
     if(globalState.remainMin === 0 || globalState.totalKm === 0){
+        // 这里必须把状态彻底还原：调用方（enterCruiseBtn）已经把 isFlying 置为 true
+        // 并隐藏了首页 UI，若只 return 会让应用卡在"假飞行"状态。
         toast("起点与终点相同或距离过近，无法飞行");
+        hideModal('cruiseModal');
+        showAllHomeUI();
+        stopAllFlyTask();
         return;
     }
 
@@ -1477,6 +1660,7 @@ function startFlyTimer(){
     updateCruiseDisplay();
 
     let prevTime = performance.now();
+    let lastFollowCheck = 0; // 自动跟随的节流时间戳（默认关闭时不参与计算）
 
     function flyStep(timestamp) {
         if(globalState.isFlyPause) {
@@ -1514,11 +1698,22 @@ function startFlyTimer(){
             const iconEl = globalState.planeMarker._icon;
             if(iconEl) {
                 const planeIcon = iconEl.querySelector('.plane-icon');
-                if(planeIcon) planeIcon.style.transform = `rotate(${bearing}deg)`;
+                if(planeIcon) {
+                    // 跨 0°/360° 边界时取最短转向路径，避免机头突然反向甩动
+                    const cur = (typeof globalState.planeDeg === 'number') ? globalState.planeDeg : bearing;
+                    let diff = ((bearing - cur + 540) % 360) - 180;
+                    const deg = cur + diff;
+                    globalState.planeDeg = deg;
+                    planeIcon.style.transform = `rotate(${deg}deg)`;
+                    planeIcon.style.setProperty('--plane-deg', deg + 'deg');
+                }
             }
         }
-        if(!globalState.userInteracting){
-            map.setView([globalState.planePos.lat, globalState.planePos.lng], map.getZoom(), {animate: false});
+        // 自动跟随（可选，默认关闭）：每约 0.5 秒检查一次，且只有偏离超过阈值才居中。
+        // 不做逐帧 setView —— 那会持续触发瓦片重排，正是之前"一卡一卡"的根源。
+        if(globalState.autoFollow && (timestamp - lastFollowCheck) > 500){
+            lastFollowCheck = timestamp;
+            maybeAutoFollow();
         }
         if(globalState.doneKm >= globalState.totalKm){
             finishFlight();
@@ -1535,6 +1730,41 @@ function updateCruiseDisplay(){
     const currMin = Math.max(0, Math.ceil(remainKm / globalState.flyKmPerMin));
     document.getElementById("leftKm").innerText = Math.round(remainKm);
     document.getElementById("rightMin").innerText = currMin;
+}
+
+// ========== 视角居中 ==========
+// 关键：绝不在逐帧循环里直接调用 setView。逐帧重设中心会让 Leaflet 不断
+// 重排/重绘瓦片，造成飞机"一卡一卡、左右摇摆"。这里改为按需触发：
+//   - 手动：点按钮立即居中
+//   - 自动跟随：仅当飞机偏离地图中心超过阈值时才居中一次
+const FOLLOW_THRESHOLD = 0.02; // 约 2km，肉眼几乎察觉不到跳变，又不会频繁触发
+
+function centerOnPlane(force){
+    if(!map || !globalState.isFlying) return;
+    const p = globalState.planePos;
+    if(!Number.isFinite(p.lat) || !Number.isFinite(p.lng)) return;
+    map.setView([p.lat, p.lng], map.getZoom(), {animate: !!force});
+}
+
+function setAutoFollow(on){
+    globalState.autoFollow = !!on;
+    const btn = document.getElementById('toggleFollowBtn');
+    if(btn){
+        btn.classList.toggle('active', globalState.autoFollow);
+        btn.title = globalState.autoFollow ? '自动跟随：开' : '自动跟随：关';
+    }
+    // 开启时立即居中一次，让用户马上看到效果
+    if(globalState.autoFollow) centerOnPlane(true);
+}
+
+// 自动跟随的检查点：只在偏离超过阈值时居中，避免持续重排
+function maybeAutoFollow(){
+    if(!globalState.autoFollow || !map || !globalState.isFlying) return;
+    const c = map.getCenter();
+    const p = globalState.planePos;
+    if(Math.abs(c.lat - p.lat) > FOLLOW_THRESHOLD || Math.abs(c.lng - p.lng) > FOLLOW_THRESHOLD){
+        centerOnPlane(false);
+    }
 }
 
 function saveFlightRecord(status) {
@@ -1569,15 +1799,17 @@ function stopAllFlyTask(){
         cancelAnimationFrame(flyAnimId);
         flyAnimId = null;
     }
-    if(globalState.flyTimer){
-        clearInterval(globalState.flyTimer);
-        globalState.flyTimer = null;
-    }
     globalState.isFlyPause = false;
     globalState.isFlying = false;
-    globalState.userInteracting = false;
+    // 结束飞行时关闭自动跟随并复位按钮状态，避免下次进入巡航时状态不一致
+    globalState.autoFollow = false;
+    const followBtn = document.getElementById('toggleFollowBtn');
+    if(followBtn){
+        followBtn.classList.remove('active');
+        followBtn.title = '自动跟随：关';
+    }
     document.getElementById("pauseTip").classList.remove('show');
-    map.getContainer().style.filter = "";
+    if(map) map.getContainer().style.filter = "";
     document.getElementById("pauseFlyBtn").innerHTML = iconSvg.pause;
     const attr = document.getElementById('customAttribution');
     if(attr) attr.classList.remove('cruise-mode');
@@ -1615,34 +1847,724 @@ function stopAllFlyTask(){
     document.getElementById('currSceneIcon').innerHTML = '';
 }
 
-// ========== 条形码生成（第一版风格） ==========
-function generateBarcodeCanvas(canvasId, text) {
-    const canvas = document.getElementById(canvasId);
-    if(!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const w = canvas.width || 380;
-    const h = canvas.height || 66;
-    canvas.width = w;
-    canvas.height = h;
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0, 0, w, h);
+// ========== 条形码生成 ==========
+// 按 Code128 的结构绘制：每个字符编码成 11 个"模块"（细条/空隙），
+// 底部标注可读数字。纯装饰用途，不参与真实扫码。
+// 旧的 generateBarcodeCanvas 依赖一个不存在的 <canvas id="barcodeCanvas">，属于死代码，已移除。
 
-    const chars = (text || '123456789012').toString();
-    ctx.fillStyle = '#000';
-    let x = 10;
-    for(let i=0; i<chars.length; i++) {
-        const code = chars.charCodeAt(i);
-        const barWidth = 1 + (code % 4) * 1.5;
-        const barHeight = 40 + (code % 20) * 0.8;
-        ctx.fillRect(x, (h - barHeight)/2, barWidth, barHeight);
-        x += barWidth + 2;
+// Code128 条空模式表（每项 6 个数字 = 3 条 3 空，总和恒为 11 模块）
+const CODE128_PATTERNS = [
+    '212222','222122','222221','121223','121322','131222','122213','122312','132212','221213',
+    '221312','231212','112232','122132','122231','113222','123122','123221','223211','221132',
+    '221231','213212','223112','312131','311222','321122','321221','312212','322112','322211',
+    '212123','212321','232121','111323','131123','131321','112313','132113','132311','211313',
+    '231113','231311','112133','112331','132131','113123','113321','133121','313121','211331',
+    '231131','213113','213311','213131','311123','311321','331121','312113','312311','332111',
+    '314111','221411','431111','111224','111422','121124','121421','141122','141221','112214',
+    '112412','122114','122411','142112','142211','241211','221114','413111','241112','134111',
+    '111242','121142','121241','114212','124112','124211','411212','421112','421211','212141',
+    '214121','412121','111143','111341','131141','114113','114311','411113','411311','113141',
+    '114131','311141','411131','211412','211214','211232','2331112'
+];
+const CODE128_START_B = 104; // 起始符 B
+const CODE128_STOP = 106;    // 终止符（7 段，含 2 模块的收尾条）
+
+function barcodeModules(text){
+    const codes = [CODE128_START_B];
+    let sum = CODE128_START_B;
+    for(let i = 0; i < text.length; i++){
+        let v = text.charCodeAt(i) - 32;
+        v = ((v % 95) + 95) % 95; // 保证落在 0..94
+        codes.push(v);
+        sum += v * (i + 1);
     }
-    // 底部文本
-    ctx.fillStyle = '#000';
-    ctx.font = '12px monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    ctx.fillText(chars, w/2, h-2);
+    codes.push(sum % 103);    // 校验位
+    codes.push(CODE128_STOP); // 终止符
+
+    // 展开成 0/1 模块序列：1=黑条，0=空白
+    // 终止符（索引 106）已在模式表内含 7 段，无需再补收尾条。
+    let bits = '';
+    codes.forEach(c => {
+        const pat = CODE128_PATTERNS[c] || CODE128_PATTERNS[0];
+        for(let i = 0; i < pat.length; i++){
+            const n = Number(pat[i]);
+            bits += (i % 2 === 0 ? '1' : '0').repeat(n);
+        }
+    });
+    return bits;
+}
+
+function drawBarcodeSvg(svgId, text, humanText) {
+    const svg = document.getElementById(svgId);
+    if(!svg) return;
+
+    const chars = (text || 'CZ8888').toString().toUpperCase().replace(/[^\x20-\x7E]/g, '') || 'CZ8888';
+    const label = (humanText !== undefined && humanText !== null) ? String(humanText) : chars;
+
+    const modules = barcodeModules(chars);
+    const W = 380;
+    const barH = 46, textH = 14, H = barH + textH;
+    // 左右留白尽量小，把宽度让给条码本身，条才会细
+    const padX = 4;
+    const usable = W - padX * 2;
+
+    // 模块宽度 = 可用宽度 / 模块总数，条码因此铺满整行、条最细。
+    // 上限 2.2px 防止内容极短时出现粗块；下限 0.6px 保证长内容仍可见。
+    const moduleW = Math.min(2.2, Math.max(0.6, usable / modules.length));
+
+    let x = padX + (usable - moduleW * modules.length) / 2; // 整体居中
+    let rects = '';
+    let i = 0;
+    // 合并连续黑色模块为一根条，减少节点数并保持边缘锐利
+    while(i < modules.length){
+        if(modules[i] === '1'){
+            let run = 0;
+            while(i < modules.length && modules[i] === '1'){ run++; i++; }
+            const w = moduleW * run;
+            rects += `<rect x="${x.toFixed(2)}" y="4" width="${Math.max(0.6, w).toFixed(2)}" height="${barH}"/>`;
+            x += w;
+        } else {
+            i++;
+            x += moduleW;
+        }
+    }
+
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    svg.innerHTML =
+        `<rect x="0" y="0" width="${W}" height="${H}" fill="#fff"/>` +
+        `<g fill="#000">${rects}</g>` +
+        `<text x="${W/2}" y="${barH + 11}" text-anchor="middle" font-family="monospace" font-size="10" letter-spacing="1.5" fill="#000">${label}</text>`;
+}
+
+// ========== 机场维基 ==========
+// 数据来源：airportDB 中各机场的可选字段（fullName / province / runways /
+// runwayLength / elevation / openedYear / intro）。未填写的字段不会显示，
+// 而是提示"待补充"，方便逐步完善资料。
+
+// 从当前起飞机场到目标机场的航程信息（若未选起点则为 null）
+function getWikiRouteInfo(air){
+    if(!globalState.startAir || globalState.startAir.code === air.code) return null;
+    const dis = getDistance(
+        globalState.startAir.lat, globalState.startAir.lng,
+        air.lat, air.lng
+    );
+    return {
+        from: globalState.startAir,
+        km: Math.round(dis),
+        min: Math.max(1, Math.round(dis / globalState.flyKmPerMin))
+    };
+}
+
+function renderWikiList(keyword){
+    const wrap = document.getElementById('wikiListWrap');
+    if(!wrap) return;
+    wrap.innerHTML = '';
+    const key = (keyword || '').trim().toUpperCase();
+
+    let list = airportDB.slice();
+    if(key){
+        list = list.filter(a =>
+            a.code.includes(key) ||
+            a.name.includes(key) ||
+            (a.fullName && a.fullName.toUpperCase().includes(key)) ||
+            (a.province && a.province.includes(key))
+        );
+    }
+    // 按三字码排序，便于查找
+    list.sort((a,b) => a.code.localeCompare(b.code));
+
+    if(list.length === 0){
+        wrap.innerHTML = '<div class="wiki-empty">未找到匹配的机场<br><span style="font-size:12px;color:#888">可尝试三字码（如 PEK）或城市名</span></div>';
+        return;
+    }
+
+    // 统计资料完整度，给用户一个进度感
+    let done = 0;
+    list.forEach(air => {
+        if(air.intro || air.fullName) done++;
+        const div = document.createElement('div');
+        div.className = 'wiki-item';
+        const hasInfo = !!(air.fullName || air.intro || air.province);
+        div.innerHTML = `<span class="airport-tag">${air.code}</span>
+            <span class="wiki-item-name">${air.name}${hasInfo ? '' : '<span class="wiki-badge">待补充</span>'}</span>
+            <span class="wiki-item-meta">${air.province || ''}</span>`;
+        div.onclick = () => openWikiDetail(air.code);
+        wrap.appendChild(div);
+    });
+    if(!key){
+        const tip = document.createElement('div');
+        tip.className = 'wiki-todo';
+        tip.style.cssText = 'text-align:center;margin-top:14px;line-height:1.6;';
+        tip.innerHTML = `共 ${list.length} 座机场，其中 ${done} 座已录入资料<br>资料可随时通过「机场资料填写表.csv」补充`;
+        wrap.appendChild(tip);
+    }
+}
+
+let wikiCurrentCode = null;
+let wikiHistoryStack = [];
+
+function openWikiDetail(code, pushHistory){
+    const air = airportDB.find(a => a.code === code);
+    if(!air) return;
+    if(pushHistory !== false && wikiCurrentCode && wikiCurrentCode !== code){
+        wikiHistoryStack.push(wikiCurrentCode);
+    }
+    wikiCurrentCode = code;
+
+    document.getElementById('wikiDetailCode').innerText = air.code;
+    document.getElementById('wikiDetailName').innerText = air.name;
+
+    const wrap = document.getElementById('wikiDetailWrap');
+    const route = getWikiRouteInfo(air);
+
+    // 已录入的资料行
+    const rows = [];
+    const addRow = (k, v) => {
+        if(v === undefined || v === null || v === '') return;
+        rows.push(`<div class="wiki-row"><span class="wiki-k">${k}</span><span class="wiki-v">${v}</span></div>`);
+    };
+
+    addRow('三字码', air.code);
+    addRow('机场全称', air.fullName);
+    addRow('城市', air.name);
+    addRow('省份', air.province);
+    addRow('跑道数量', air.runways ? air.runways + ' 条' : '');
+    addRow('跑道长度', air.runwayLength ? air.runwayLength + ' 米' : '');
+    addRow('海拔高度', (air.elevation !== undefined && air.elevation !== '') ? air.elevation + ' 米' : '');
+    addRow('启用年份', air.openedYear || '');
+    addRow('坐标', `${Number(air.lat).toFixed(4)}, ${Number(air.lng).toFixed(4)}`);
+
+    // 航程信息（相对当前起点）
+    if(route){
+        addRow('距当前起点', `${route.km} km`);
+        addRow('预计航程', `${route.min} 分钟`);
+    }
+
+    let html = rows.join('');
+    if(air.intro){
+        html += `<div class="wiki-intro">${air.intro}</div>`;
+    } else {
+        html += `<div class="wiki-intro" style="color:#888;">简介待补充。<br><span style="font-size:12px;">可在「机场资料填写表.csv」的「简介」列填写后重新导入。</span></div>`;
+    }
+
+    // 若资料缺失较多，给出明确提示
+    const missing = [];
+    if(!air.fullName) missing.push('全称');
+    if(!air.province) missing.push('省份');
+    if(!air.runways) missing.push('跑道');
+    if(!air.elevation && air.elevation !== 0) missing.push('海拔');
+    if(!air.openedYear) missing.push('启用年份');
+    if(missing.length){
+        html += `<div class="wiki-todo" style="margin-top:12px;">尚未录入：${missing.join('、')}</div>`;
+    }
+
+    // 导航按钮：设为起点 / 设为终点
+    const startDisabled = globalState.isFlying || (globalState.startAir && globalState.startAir.code === air.code);
+    const destDisabled = !globalState.startAir || globalState.startAir.code === air.code;
+    html += `<div class="wiki-nav">
+        <button id="wikiSetStart" ${startDisabled ? 'disabled' : ''}>设为起点</button>
+        <button id="wikiSetDest" ${destDisabled ? 'disabled' : ''}>设为终点</button>
+    </div>`;
+
+    wrap.innerHTML = html;
+
+    // 绑定导航按钮
+    const btnStart = document.getElementById('wikiSetStart');
+    if(btnStart) btnStart.onclick = () => {
+        if(globalState.isFlying){ toast('飞行中无法切换机场'); return; }
+        hideModal('wikiDetailPop');
+        hideModal('wikiPop');
+        selectStartAirport(air);
+    };
+    const btnDest = document.getElementById('wikiSetDest');
+    if(btnDest) btnDest.onclick = () => {
+        if(!globalState.startAir){ toast('请先选择起飞机场'); return; }
+        hideModal('wikiDetailPop');
+        hideModal('wikiPop');
+        confirmDestAir(air);
+    };
+
+    showModal('wikiDetailPop');
+}
+
+function openWiki(){
+    wikiCurrentCode = null;
+    wikiHistoryStack = [];
+    const input = document.getElementById('wikiSearchInput');
+    if(input) input.value = '';
+    renderWikiList('');
+    showModal('wikiPop');
+}
+
+// ========== 存档（备份 + 配置存档位） ==========
+// 纯静态站没有服务器，因此"存档"完全依赖浏览器本地存储 + 用户自己导出的 JSON 文件。
+// 备份文件让用户能在换设备/清缓存后恢复数据。
+
+const ARCHIVE_VERSION = 1;
+// 参与备份/恢复的所有本地存储键
+// 注意：新增任何持久化功能时，必须把对应的键加进这里，
+// 否则导出的备份会悄悄漏掉该项数据。
+const ARCHIVE_KEYS = ['flyHistory','sceneSave','userNick','startAirCode','hasSetStart',
+                      'defaultMapStyle','customTileUrl','settingTab','slotSave','planSave'];
+
+function collectArchiveData(){
+    const data = {};
+    ARCHIVE_KEYS.forEach(k => {
+        const v = getStorage(k, undefined);
+        if(v !== undefined && v !== null) data[k] = v;
+    });
+    return {
+        app: 'wj-airplane',
+        version: ARCHIVE_VERSION,
+        exportedAt: new Date().toISOString(),
+        data: data
+    };
+}
+
+function downloadJson(obj, filename){
+    try {
+        const text = JSON.stringify(obj, null, 2);
+        const blob = new Blob([text], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        // 延后释放，确保下载已经开始
+        setTimeout(()=>URL.revokeObjectURL(url), 1000);
+        return true;
+    } catch(e) {
+        toast('导出失败：' + e.message);
+        return false;
+    }
+}
+
+function exportArchive(){
+    const stamp = new Date().toISOString().slice(0,10);
+    const ok = downloadJson(collectArchiveData(), `wj-airplane-存档-${stamp}.json`);
+    if(ok) toast('存档已导出，请妥善保存该文件');
+}
+
+function importArchive(file){
+    const reader = new FileReader();
+    reader.onload = function(e){
+        let obj;
+        try {
+            obj = JSON.parse(e.target.result);
+        } catch(err) {
+            toast('文件不是合法的 JSON');
+            return;
+        }
+        if(!obj || obj.app !== 'wj-airplane' || typeof obj.data !== 'object' || obj.data === null){
+            toast('这不是本应用的存档文件');
+            return;
+        }
+        // 只接受已知的键，避免把任意数据写进 localStorage
+        const incoming = {};
+        ARCHIVE_KEYS.forEach(k => {
+            if(Object.prototype.hasOwnProperty.call(obj.data, k)) incoming[k] = obj.data[k];
+        });
+        const keys = Object.keys(incoming);
+        if(keys.length === 0){
+            toast('存档文件里没有可恢复的数据');
+            return;
+        }
+        const when = obj.exportedAt ? new Date(obj.exportedAt).toLocaleString() : '未知时间';
+        if(!confirm(`确认导入该存档？\n导出时间：${when}\n包含 ${keys.length} 项数据，将覆盖当前进度。`)) return;
+
+        keys.forEach(k => setStorage(k, incoming[k]));
+        toast('导入完成，正在重新载入…');
+        setTimeout(()=>location.reload(), 900);
+    };
+    reader.onerror = function(){ toast('读取文件失败'); };
+    reader.readAsText(file);
+}
+
+// ---------- 配置存档位 ----------
+// 保存"起点 / 终点 / 座位 / 场景 / 航程档位"这套配置，便于一键复用。
+const MAX_SLOTS = 12;
+
+function getSlots(){
+    const v = getStorage('slotSave', []);
+    return Array.isArray(v) ? v : [];
+}
+function setSlots(list){
+    setStorage('slotSave', list);
+}
+
+function currentConfigSummary(){
+    const s = globalState.startAir, e = globalState.endAir;
+    return {
+        start: s ? s.code : null,
+        end: e ? e.code : null,
+        seat: globalState.selectSeat || null,
+        scene: globalState.currScene ? globalState.currScene.name : null,
+        flyMin: globalState.flyMin
+    };
+}
+
+function saveCurrentConfig(){
+    if(!globalState.startAir){
+        toast('请先选择起飞机场再保存配置');
+        return;
+    }
+    const name = prompt('给这套配置起个名字：',
+        `${globalState.startAir.code}${globalState.endAir ? '→'+globalState.endAir.code : ''}`);
+    if(name === null) return;
+    const trimmed = name.trim();
+    if(!trimmed){ toast('名称不能为空'); return; }
+
+    const slots = getSlots();
+    if(slots.length >= MAX_SLOTS && !slots.some(s => s.name === trimmed)){
+        toast(`最多保存 ${MAX_SLOTS} 套配置，请先删除不用的`);
+        return;
+    }
+    if(slots.some(s => s.name === trimmed) && !confirm('已存在同名配置，是否覆盖？')) return;
+
+    const cfg = currentConfigSummary();
+    cfg.name = trimmed;
+    cfg.savedAt = new Date().toLocaleString();
+
+    const idx = slots.findIndex(s => s.name === trimmed);
+    if(idx >= 0) slots[idx] = cfg; else slots.push(cfg);
+    setSlots(slots);
+    renderArchiveContent('slots');
+    toast('配置已保存');
+}
+
+function applyConfig(slot){
+    if(globalState.isFlying){ toast('飞行中无法套用配置'); return; }
+    const start = airportDB.find(a => a.code === slot.start);
+    if(!start){ toast('该配置的起飞机场已不存在'); return; }
+
+    globalState.startAir = start;
+    globalState.hasSetStart = true;
+    globalState.startAirCode = start.code;
+    setStorage('startAirCode', start.code);
+    setStorage('hasSetStart', true);
+
+    // 场景：按名称在预设 + 自定义中查找
+    if(slot.scene){
+        const all = userSceneList.length ? userSceneList : baseSceneList;
+        const sc = all.find(s => s.name === slot.scene);
+        if(sc){
+            globalState.currScene = sc;
+            globalState.currSceneColor = sceneColorMap[sc.cls] || "#277c34";
+        }
+    }
+    globalState.selectSeat = slot.seat || null;
+    if(typeof slot.flyMin === 'number'){
+        globalState.flyMin = slot.flyMin;
+        const slider = document.getElementById('timeRangeSlider');
+        if(slider){
+            slider.value = String(slot.flyMin);
+            const lab = document.getElementById('timeLabel');
+            if(lab) lab.innerText = slot.flyMin + ' 分钟';
+        }
+    }
+    rebuildAirportMinutesCache();
+    updateHomeAirportInfo();
+    hideModal('archivePop');
+
+    // 若配置里带终点，直接进入选座流程
+    const end = slot.end ? airportDB.find(a => a.code === slot.end) : null;
+    if(end && end.code !== start.code){
+        confirmDestAir(end);
+    } else {
+        updateRangeCircle(globalState.flyMin);
+        filterAirportByRange(globalState.flyMin);
+        renderAllSeat();
+        renderSceneList();
+        showModal('airportModal');
+    }
+    toast('配置已套用');
+}
+
+function deleteConfig(name){
+    if(!confirm(`删除配置「${name}」？`)) return;
+    setSlots(getSlots().filter(s => s.name !== name));
+    renderArchiveContent('slots');
+    toast('已删除');
+}
+
+function renderArchiveContent(tab){
+    const content = document.getElementById('archiveContent');
+    if(!content) return;
+
+    if(tab === 'backup'){
+        const data = collectArchiveData();
+        const n = Object.keys(data.data).length;
+        const hist = Array.isArray(data.data.flyHistory) ? data.data.flyHistory.length : 0;
+        content.innerHTML = `
+            <div class="set-row">
+                <div>当前数据</div>
+                <div style="color:#aaa">${n} 项 · 飞行记录 ${hist} 条</div>
+            </div>
+            <div class="set-row">
+                <div>导出存档</div>
+                <button class="arch-btn primary" id="btnExportArchive">导出 JSON 文件</button>
+            </div>
+            <div class="set-row">
+                <div>导入存档</div>
+                <button class="arch-btn" id="btnImportArchive">选择文件导入</button>
+            </div>
+            <input type="file" id="archiveFileInput" accept="application/json,.json" style="display:none">
+            <div class="arch-note">
+                存档保存在浏览器本地，清理浏览器数据会丢失。<br>
+                导出的 JSON 文件包含飞行记录、场景、昵称等全部设置，请妥善保管。
+            </div>
+            <div class="arch-danger">
+                <button class="arch-btn danger" id="btnClearAll">清空全部本地数据</button>
+            </div>
+        `;
+        document.getElementById('btnExportArchive').onclick = exportArchive;
+        const fileInput = document.getElementById('archiveFileInput');
+        document.getElementById('btnImportArchive').onclick = ()=>fileInput.click();
+        fileInput.onchange = function(){
+            const f = this.files && this.files[0];
+            if(f) importArchive(f);
+            this.value = ''; // 允许连续选择同一个文件
+        };
+        document.getElementById('btnClearAll').onclick = function(){
+            if(!confirm('确认清空全部本地数据？\n飞行记录、场景、配置都会被删除，且无法撤销。\n建议先导出存档。')) return;
+            ARCHIVE_KEYS.forEach(k => { try { localStorage.removeItem(k); } catch(e){} });
+            toast('已清空，正在重新载入…');
+            setTimeout(()=>location.reload(), 900);
+        };
+        return;
+    }
+
+    // 配置存档位
+    const slots = getSlots();
+    let html = `
+        <div class="set-row">
+            <div>当前配置</div>
+            <div style="color:#aaa" id="archCurCfg"></div>
+        </div>
+        <button class="arch-btn primary" id="btnSaveConfig" style="width:100%;margin:12px 0 18px;">
+            保存当前配置（${slots.length}/${MAX_SLOTS}）
+        </button>
+    `;
+    if(slots.length === 0){
+        html += '<div class="wiki-empty">还没有保存的配置<br><span style="font-size:12px;color:#888">选好起点、终点、座位和场景后点上方按钮保存</span></div>';
+    } else {
+        slots.forEach((s, i) => {
+            html += `
+                <div class="slot-item">
+                    <div class="slot-main">
+                        <div class="slot-name">${s.name}</div>
+                        <div class="slot-meta">${s.start || '—'}${s.end ? ' → ' + s.end : ''} · 座位 ${s.seat || '未选'} · ${s.scene || '默认场景'} · ${s.flyMin || 60}分钟</div>
+                        <div class="slot-time">保存于 ${s.savedAt || '未知'}</div>
+                    </div>
+                    <div class="slot-actions">
+                        <button class="arch-btn small" data-apply="${i}">套用</button>
+                        <button class="arch-btn small danger" data-del="${i}">删除</button>
+                    </div>
+                </div>`;
+        });
+    }
+    content.innerHTML = html;
+
+    const cur = currentConfigSummary();
+    const curEl = document.getElementById('archCurCfg');
+    if(curEl) curEl.innerText = cur.start
+        ? `${cur.start}${cur.end ? ' → ' + cur.end : ''} · 座位 ${cur.seat || '未选'}`
+        : '尚未选择起点';
+
+    document.getElementById('btnSaveConfig').onclick = saveCurrentConfig;
+    content.querySelectorAll('[data-apply]').forEach(btn => {
+        btn.onclick = ()=>applyConfig(slots[Number(btn.dataset.apply)]);
+    });
+    content.querySelectorAll('[data-del]').forEach(btn => {
+        btn.onclick = ()=>deleteConfig(slots[Number(btn.dataset.del)].name);
+    });
+}
+
+function openArchive(){
+    renderArchiveContent('backup');
+    document.querySelectorAll('#archivePop .set-tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.atab === 'backup');
+    });
+    showModal('archivePop');
+}
+
+// ========== 飞行计划 ==========
+// 与"配置存档"的区别：配置存档保存的是"界面状态"（含座位、场景），
+// 飞行计划保存的是"航线本身"（起点+终点+计划时长），可一键直接开飞。
+const MAX_PLANS = 20;
+
+function getPlans(){
+    const v = getStorage('planSave', []);
+    return Array.isArray(v) ? v : [];
+}
+function setPlans(list){
+    setStorage('planSave', list);
+}
+function planFuelInfo(startCode, endCode){
+    const s = airportDB.find(a => a.code === startCode);
+    const e = airportDB.find(a => a.code === endCode);
+    if(!s || !e) return null;
+    const km = Math.round(getDistance(s.lat, s.lng, e.lat, e.lng));
+    const actualMin = Math.max(1, Math.round(km / globalState.flyKmPerMin));
+    return { km, actualMin };
+}
+
+function renderPlanContent(tab){
+    const content = document.getElementById('planContent');
+    if(!content) return;
+
+    if(tab === 'new'){
+        const cur = globalState.startAir && globalState.endAir;
+        content.innerHTML = `
+            <div class="set-row">
+                <div>当前航线</div>
+                <div style="color:${cur ? '#36d058' : '#aaa'}" id="planCurRoute">
+                    ${cur ? `${globalState.startAir.code} → ${globalState.endAir.code}` : '尚未选好起终点'}
+                </div>
+            </div>
+            <div class="set-row">
+                <div>计划名称</div>
+                <input type="text" id="planNameInput" placeholder="例如：早班通勤" style="width:60%;">
+            </div>
+            <div class="set-row">
+                <div>计划时长（分钟）</div>
+                <input type="text" id="planMinInput" value="${globalState.flyMin}" style="width:90px;text-align:right;">
+            </div>
+            <button class="arch-btn primary" id="btnCreatePlan" style="width:100%;margin-top:16px;"
+                ${cur ? '' : 'disabled'}>保存为飞行计划</button>
+            <div class="arch-note">
+                飞行计划记录的是<b>起点与终点</b>，可随时一键开飞。<br>
+                若还没选好航线，请先回到地图选择起点，再从列表中选择终点。${cur ? '' : '<br><span style="color:#ffaa33;">当前尚未选好起终点，无法保存。</span>'}
+            </div>
+        `;
+        const btn = document.getElementById('btnCreatePlan');
+        if(btn) btn.onclick = createPlanFromCurrent;
+        return;
+    }
+
+    // 列表页
+    const plans = getPlans();
+    if(plans.length === 0){
+        content.innerHTML = `<div class="wiki-empty">还没有飞行计划<br>
+            <span style="font-size:12px;color:#888">选好起终点后，切到「新建计划」即可保存</span></div>`;
+        return;
+    }
+
+    let html = '';
+    plans.forEach((p, i) => {
+        const info = planFuelInfo(p.start, p.end);
+        let meta = `${p.start} → ${p.end}`;
+        if(info) meta += ` · ${info.km} km · 约 ${info.actualMin} 分钟`;
+        html += `
+            <div class="slot-item">
+                <div class="slot-main">
+                    <div class="slot-name">${p.name}</div>
+                    <div class="slot-meta">${meta}</div>
+                    <div class="slot-time">创建于 ${p.createdAt || '未知'}${p.scene ? ' · 场景 ' + p.scene : ''}</div>
+                </div>
+                <div class="slot-actions">
+                    <button class="arch-btn small primary" data-fly="${i}">起飞</button>
+                    <button class="arch-btn small danger" data-pdel="${i}">删除</button>
+                </div>
+            </div>`;
+    });
+    html += `<div class="arch-note">共 ${plans.length}/${MAX_PLANS} 个计划。点「起飞」将直接按该航线开始飞行。</div>`;
+    content.innerHTML = html;
+
+    content.querySelectorAll('[data-fly]').forEach(btn => {
+        btn.onclick = ()=>startPlan(getPlans()[Number(btn.dataset.fly)]);
+    });
+    content.querySelectorAll('[data-pdel]').forEach(btn => {
+        btn.onclick = ()=>deletePlan(getPlans()[Number(btn.dataset.pdel)].name);
+    });
+}
+
+function createPlanFromCurrent(){
+    if(!globalState.startAir || !globalState.endAir){
+        toast('请先选好起点和终点');
+        return;
+    }
+    const nameEl = document.getElementById('planNameInput');
+    const minEl = document.getElementById('planMinInput');
+    let name = ((nameEl && nameEl.value) || '').trim();
+    if(!name) name = `${globalState.startAir.code}→${globalState.endAir.code}`;
+
+    const plans = getPlans();
+    if(plans.length >= MAX_PLANS && !plans.some(p => p.name === name)){
+        toast(`最多保存 ${MAX_PLANS} 个计划，请先删除不用的`);
+        return;
+    }
+    if(plans.some(p => p.name === name) && !confirm('已存在同名计划，是否覆盖？')) return;
+
+    let planMin = Number(minEl && minEl.value);
+    if(!Number.isFinite(planMin) || planMin <= 0) planMin = globalState.flyMin;
+
+    const plan = {
+        name: name,
+        start: globalState.startAir.code,
+        end: globalState.endAir.code,
+        planMin: planMin,
+        scene: globalState.currScene ? globalState.currScene.name : null,
+        createdAt: new Date().toLocaleString()
+    };
+    const idx = plans.findIndex(p => p.name === name);
+    if(idx >= 0) plans[idx] = plan; else plans.push(plan);
+    setPlans(plans);
+
+    // 切回列表页并刷新
+    document.querySelectorAll('#planPop .set-tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.ptab === 'list');
+    });
+    renderPlanContent('list');
+    toast('飞行计划已保存');
+}
+
+function deletePlan(name){
+    if(!confirm(`删除计划「${name}」？`)) return;
+    setPlans(getPlans().filter(p => p.name !== name));
+    renderPlanContent('list');
+    toast('已删除');
+}
+
+// 按计划一键开飞：设置起终点后直接进入选座流程
+function startPlan(plan){
+    if(!plan) return;
+    if(globalState.isFlying){ toast('飞行中无法开始新计划'); return; }
+    const s = airportDB.find(a => a.code === plan.start);
+    const e = airportDB.find(a => a.code === plan.end);
+    if(!s || !e){ toast('该计划的机场已不存在'); return; }
+
+    globalState.startAir = s;
+    globalState.hasSetStart = true;
+    globalState.startAirCode = s.code;
+    setStorage('startAirCode', s.code);
+    setStorage('hasSetStart', true);
+
+    if(plan.scene){
+        const all = userSceneList.length ? userSceneList : baseSceneList;
+        const sc = all.find(x => x.name === plan.scene);
+        if(sc){
+            globalState.currScene = sc;
+            globalState.currSceneColor = sceneColorMap[sc.cls] || "#277c34";
+        }
+    }
+    rebuildAirportMinutesCache();
+    updateHomeAirportInfo();
+    hideModal('planPop');
+    confirmDestAir(e);
+    toast(`计划「${plan.name}」已开始`);
+}
+
+function openPlan(){
+    const tab = getPlans().length ? 'list' : 'new';
+    document.querySelectorAll('#planPop .set-tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.ptab === tab);
+    });
+    renderPlanContent(tab);
+    showModal('planPop');
 }
 
 // ========== 设置弹窗内容管理 ==========
@@ -1708,7 +2630,11 @@ function renderSettingContent(tab) {
         `;
         const select = document.getElementById('defaultMapStyleSelect');
         const savedStyle = getStorage('defaultMapStyle', 'sat');
-        select.value = savedStyle;
+        // 若 localStorage 里存的是历史值（如已移除的 osm / satLabel），
+        // 直接赋值会让 select.value 变成空字符串、控件显示空白，这里回退到 sat。
+        const hasOption = Array.from(select.options).some(o => o.value === savedStyle);
+        select.value = hasOption ? savedStyle : 'sat';
+        if(!hasOption) setStorage('defaultMapStyle', 'sat');
         select.onchange = function() {
             const val = this.value;
             setStorage('defaultMapStyle', val);
@@ -1755,7 +2681,8 @@ function showSettingWithOverlay(){
     closeAllModals('settingPop');
     const lastTab = getStorage('settingTab', 'account');
     renderSettingContent(lastTab);
-    document.querySelectorAll('.set-tab').forEach(t => {
+    // 限定在设置面板内，避免误改存档/计划面板的标签高亮
+    document.querySelectorAll('#settingPop .set-tab').forEach(t => {
         t.classList.toggle('active', t.dataset.tab === lastTab);
     });
     showModal('settingPop');
@@ -1766,16 +2693,42 @@ function hideSettingWithOverlay(){
 
 // ========== 绑定UI事件 ==========
 function bindUIEvents() {
-    // 滑块
+    // 滑块（航程筛选器）
     const slider = document.getElementById("timeRangeSlider");
     const timeLabel = document.getElementById("timeLabel");
-    slider.oninput = throttle(function(){
-        const val = Number(this.value);
+    const timeHint = document.getElementById("timeRangeHint");
+    // 航程筛选滑块：不使用 throttle，确保手指/鼠标松开时最后一个值一定提交。
+    // 这样滑块视觉位置、timeLabel、globalState.flyMin、机场筛选四者始终一致。
+    // 注意：该值只用于筛选机场范围，不代表飞行时长（时长由距离 ÷ 巡航速度决定）。
+    function applyTimeSliderValue(value){
+        const min = Number(slider.min || 10);
+        const max = Number(slider.max || 240);
+        const val = Math.min(max, Math.max(min, Number(value)));
+        slider.value = String(val);
         timeLabel.innerText = val + ' 分钟';
         globalState.flyMin = val;
+        // 同步显示筛选窗口与实际半径，让"这是筛选器"一目了然
+        if(timeHint){
+            const lo = Math.max(1, val - 10);
+            const hi = val + 10;
+            const km = Math.round(val * globalState.flyKmPerMin);
+            timeHint.innerText = `圈内约 ${km} km\n仅显示 ${lo}–${hi} 分钟航程`;
+        }
         updateRangeCircle(val);
         filterAirportByRange(val, document.getElementById('airportMainSearch').value);
-    }, 120);
+    }
+
+    slider.oninput = function(){
+        applyTimeSliderValue(this.value);
+    };
+
+    // 某些移动端浏览器会在滑动结束时漏掉最后一次 input，这里再用 change 强制同步一次。
+    slider.onchange = function(){
+        applyTimeSliderValue(this.value);
+    };
+
+    // 初始化时也从滑块真实 value 同步，而不是依赖默认状态。
+    applyTimeSliderValue(slider.value);
 
     document.getElementById("confirmSeatBtn").onclick = ()=>{
         if(!globalState.selectSeat) {
@@ -1792,7 +2745,12 @@ function bindUIEvents() {
         document.getElementById("showNick").innerText = userNick;
         const flightNum = randomFlightNumber();
         document.getElementById("flightNumberDisplay").innerText = flightNum;
-        setTimeout(()=>generateBarcodeCanvas('barcodeCanvas', flightNum + globalState.selectSeat), 100);
+        // 条形码内容 = 航班号 + 座位，保证每次登机牌都有唯一且可见变化的码
+        // 编码"航班号+座位"：内容稍长，条码更细密，视觉上更接近真实登机牌。
+        // 底部可读文字用空格分隔，便于人眼核对。
+        drawBarcodeSvg('ticketBarcode',
+            flightNum + (globalState.selectSeat || ''),
+            `${flightNum}  ${globalState.selectSeat || ''}`.trim());
     };
 
     document.getElementById("goTakeoff").onclick = ()=>{
@@ -1817,14 +2775,9 @@ function bindUIEvents() {
         document.getElementById('cruiseFlyTime').innerText = '0 min';
         document.getElementById('cruiseFlyDist').innerText = '0 km';
         startFlyTimer();
-        // 飞行中隐藏部分图层选项
+        // 飞行中恢复图层选项的可见性（图层面板目前只有 卫星/路网/自定义 三项）
         document.querySelectorAll('.layer-item').forEach(el => {
-            const layer = el.dataset.layer;
-            if(layer === 'satLabel' || layer === 'osm') {
-                el.style.display = 'none';
-            } else {
-                el.style.display = 'block';
-            }
+            el.style.display = 'block';
         });
     };
 
@@ -1834,24 +2787,32 @@ function bindUIEvents() {
         if(globalState.isFlyPause){
             this.innerHTML = iconSvg.play;
             tipDom.classList.add('show');
-            map.getContainer().style.filter = "brightness(0.4)";
+            if(map) map.getContainer().style.filter = "brightness(0.4)";
         }else{
             this.innerHTML = iconSvg.pause;
             tipDom.classList.remove('show');
-            map.getContainer().style.filter = "";
+            if(map) map.getContainer().style.filter = "";
         }
     };
 
-    document.getElementById("zoomInBtn").onclick = ()=> map.zoomIn();
-    document.getElementById("zoomOutBtn").onclick = ()=> map.zoomOut();
+    document.getElementById("zoomInBtn").onclick = ()=> { if(map) map.zoomIn(); };
+    document.getElementById("zoomOutBtn").onclick = ()=> { if(map) map.zoomOut(); };
 
-    let interactionTimer;
-    function setUserInteracting(){
-        globalState.userInteracting = true;
-        clearTimeout(interactionTimer);
-        interactionTimer = setTimeout(()=>{ globalState.userInteracting = false; }, 3000);
-    }
-    map.on('dragstart zoomstart', setUserInteracting);
+    // 回到飞机位置（手动居中，带平滑动画）
+    document.getElementById("centerOnPlaneBtn").onclick = ()=>{
+        if(!globalState.isFlying){ toast('当前不在飞行中'); return; }
+        centerOnPlane(true);
+    };
+    // 切换自动跟随
+    document.getElementById("toggleFollowBtn").onclick = function(){
+        if(!globalState.isFlying){ toast('当前不在飞行中'); return; }
+        setAutoFollow(!globalState.autoFollow);
+        toast(globalState.autoFollow ? '自动跟随已开启' : '自动跟随已关闭');
+    };
+
+    // 原先此处有 setUserInteracting()（用于"用户拖动地图时暂停视角跟随"）。
+    // 现在自动跟随默认关闭，且用户拖动后若偏离超阈值会在半秒后自动居中，
+    // 交互更简单，因此不再需要该逻辑。
 
     document.getElementById("openLayerPanel").onclick = ()=>{
         document.getElementById("layerPanel").classList.toggle('show');
@@ -1968,14 +2929,41 @@ function bindUIEvents() {
         renderHistory();
         toast("已清空");
     };
-    document.getElementById("openWiki").onclick = ()=>toast("维基功能即将上线，敬请期待！");
-    document.getElementById("btnFlyPlan").onclick = ()=>toast("飞行计划功能开发中");
-    document.getElementById("btnRank").onclick = ()=>toast("排行榜开发中");
-    document.getElementById("btnArchive").onclick = ()=>toast("存档功能开发中");
-
-    document.querySelectorAll(".set-tab").forEach(tab => {
+    document.getElementById("openWiki").onclick = ()=>openWiki();
+    document.getElementById("closeWikiPop").onclick = ()=>hideModal('wikiPop');
+    document.getElementById("closeWikiDetail").onclick = ()=>{
+        // 从详情返回时优先回到维基列表，而不是直接关闭
+        hideModal('wikiDetailPop');
+    };
+    document.getElementById("wikiSearchInput").oninput = debounce(function(e){
+        renderWikiList(e.target.value);
+    }, 150);
+    document.getElementById("btnFlyPlan").onclick = ()=>openPlan();
+    document.getElementById("closePlanPop").onclick = ()=>hideModal('planPop');
+    document.querySelectorAll('#planPop .set-tab').forEach(tab => {
         tab.onclick = function(){
-            document.querySelectorAll(".set-tab").forEach(t => t.classList.remove("active"));
+            document.querySelectorAll('#planPop .set-tab').forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            renderPlanContent(this.dataset.ptab);
+        };
+    });
+    document.getElementById("btnRank").onclick = ()=>toast("排行榜开发中");
+    document.getElementById("btnArchive").onclick = ()=>openArchive();
+    document.getElementById("closeArchivePop").onclick = ()=>hideModal('archivePop');
+    document.querySelectorAll('#archivePop .set-tab').forEach(tab => {
+        tab.onclick = function(){
+            document.querySelectorAll('#archivePop .set-tab').forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            renderArchiveContent(this.dataset.atab);
+        };
+    });
+
+    // 注意：必须限定在 #settingPop 内。存档 / 飞行计划面板也使用 .set-tab 样式，
+    // 若这里用全局 ".set-tab" 选择器，会把上面已绑定的面板标签事件覆盖掉，
+    // 导致那两个面板的标签点了没反应。
+    document.querySelectorAll("#settingPop .set-tab").forEach(tab => {
+        tab.onclick = function(){
+            document.querySelectorAll("#settingPop .set-tab").forEach(t => t.classList.remove("active"));
             this.classList.add("active");
             const tabName = this.dataset.tab;
             setStorage('settingTab', tabName);
@@ -2016,18 +3004,19 @@ function bindUIEvents() {
         });
     }, 200);
 
-    document.getElementById("nickEditInput")?.addEventListener('blur', function() {
-        userNick = this.value.trim() || "请在设置中输入昵称";
-        setStorage("userNick", userNick);
-        const show = document.getElementById("showNick");
-        if(show) show.innerText = userNick;
-    });
+    // 注意：昵称输入框（#nickEditInput）是 renderSettingContent 动态创建的，
+    // 在 bindUIEvents 执行时并不存在，其 blur 监听已在 renderSettingContent 内绑定。
+    // 此处原先重复绑定一次，属于永不生效的死代码，已移除以免日后误改。
 
     let selectedIcon = defaultSceneIcon;
     let selectedName = "";
     document.getElementById("openAddScenePop").onclick = function(){
-        if(userSceneList.length >= MAX_SCENE_NUM){
-            toast("最多仅可添加14个专注场景");
+        // userSceneList 初始会被填充 11 个官方预设场景，因此不能直接用它判断上限，
+        // 否则"最多 14 个"实际只能再加 3 个。这里只统计用户自定义的场景数量。
+        const baseNames = baseSceneList.map(s => s.name);
+        const customCount = userSceneList.filter(s => !baseNames.includes(s.name)).length;
+        if(customCount >= MAX_SCENE_NUM){
+            toast(`最多仅可添加 ${MAX_SCENE_NUM} 个自定义专注场景`);
             return;
         }
         const presetRow = document.getElementById("presetSceneRow");
@@ -2081,8 +3070,10 @@ function bindUIEvents() {
     };
 
     document.getElementById("settingOverlay").onclick = function(){
-        if(document.getElementById("settingPop").classList.contains('show')){
-            hideSettingWithOverlay();
+        // 点击遮罩关闭当前打开的 setting 类面板
+        for(const id of SETTING_STYLE_MODALS){
+            const el = document.getElementById(id);
+            if(el && el.classList.contains('show')) hideModal(id);
         }
     };
 
